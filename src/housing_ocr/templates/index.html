@@ -14,8 +14,9 @@
     <nav class="fixed top-0 left-0 right-0 bg-white shadow-md z-50">
         <div class="container mx-auto px-4 py-3 flex items-center justify-between max-w-7xl">
             <h1 class="text-xl font-bold text-gray-800">房产 OCR 系统</h1>
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-3">
                 <select id="modelSelect" class="border rounded px-3 py-2 text-sm">
+                <option value="">选择模型...</option>
                 </select>
                 <button onclick="showUploadModal()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">
                     上传文件
@@ -24,7 +25,7 @@
         </div>
     </nav>
 
-    <div class="container mx-auto px-4 pt-20 pb-8 max-w-7xl">
+    <div class="container mx-auto px-4 pt-16 pb-8 max-w-7xl">
         <div class="bg-white rounded-lg shadow-md p-4 mb-6">
             <h2 class="text-lg font-semibold text-gray-700 mb-3">筛选房产</h2>
             <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -42,9 +43,7 @@
             </div>
         </div>
 
-        <div id="propertyGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        </div>
-
+        <div id="propertyGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
         <div id="emptyState" class="text-center py-16 hidden">
             <p class="text-gray-500 text-lg">暂无房产数据</p>
             <button onclick="showUploadModal()" class="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">上传文档</button>
@@ -73,7 +72,7 @@
             <div class="max-w-7xl mx-auto bg-white rounded-lg shadow-xl">
                 <div class="sticky top-0 bg-white border-b p-4 flex justify-between items-center z-10">
                     <div>
-                        <h2 id="detailTitle" class="text-xl font-bold text-gray-800"></h2>
+                        <h2 id="detailTitle" class="text-xl font-bold text-gray-800 max-w-2xl truncate"></h2>
                         <div class="flex items-center gap-2 mt-1 text-sm">
                             <span>OCR状态:</span>
                             <span id="ocrStatus" class="px-2 py-0.5 rounded text-xs"></span>
@@ -100,11 +99,13 @@
                         <div class="space-y-4">
                             <div class="bg-gray-50 rounded-lg p-4">
                                 <h3 class="font-semibold text-gray-700 mb-2">文档预览</h3>
-                                <div id="documentPreview" class="border rounded bg-white min-h-[300px] flex items-center justify-center"></div>
+                                <div id="documentPreview" class="border rounded bg-white min-h-[300px] flex items-center justify-center">
+                                    <p class="text-gray-400 text-center">加载中...</p>
+                                </div>
                             </div>
                             <div class="bg-gray-50 rounded-lg p-4">
                                 <h3 class="font-semibold text-gray-700 mb-2">OCR 文本</h3>
-                                <pre id="ocrText" class="bg-white p-3 rounded max-h-64 overflow-auto text-sm whitespace-pre-wrap"></pre>
+                                <pre id="ocrText" class="bg-white p-3 rounded max-h-64 overflow-auto text-sm whitespace-pre-wrap font-mono"></pre>
                             </div>
                         </div>
                         <div class="bg-gray-50 rounded-lg p-4">
@@ -126,6 +127,8 @@
     <script>
         let allProperties = [];
         let availableModels = [];
+        let currentDocId = null;
+        let editMode = false;
 
         async function loadModels() {
             const response = await fetch('/api/models');
@@ -152,115 +155,53 @@
                 return;
             }
             
-    emptyState.classList.add('hidden');
-    grid.innerHTML = properties.map(prop => {
-        const statusBadge = prop.ocr_status || 'pending';
-        const statusColors = {
-            'pending': 'bg-yellow-100 text-yellow-800',
-            'processing': 'bg-blue-100 text-blue-800',
-            'completed': 'bg-green-100 text-green-800',
-            'failed': 'bg-red-100 text-red-800',
-            'manual_edit': 'bg-purple-100 text-purple-800',
-        };
-        const statusLabels = {
-            'pending': '待OCR',
-            'processing': '处理中',
-            'completed': '完成',
-            'failed': '失败',
-            'manual_edit': '已编辑',
-        };
-        const llmStatus = prop.llm_status || 'pending';
-        const llmBadge = prop.ocr_status === 'completed' ? 
-            `<span class="ml-1 ${statusColors[llmStatus] || 'bg-gray-100 text-gray-800'}">${statusLabels[llmStatus] || llmStatus}</span>` : '';
-        
-        return `
-                <div class="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow cursor-pointer" onclick="showPropertyDetail(${prop.id})">
-                    <div class="flex justify-between items-start mb-2">
-                        <h3 class="font-semibold text-gray-800 truncate flex-1">${prop.property_name || prop.original_filename}</h3>
-                        <span class="${statusColors[statusBadge] || 'bg-gray-100 text-gray-800'} text-xs px-2 py-1 rounded">
-                            ${statusLabels[statusBadge] || statusBadge}${llmBadge}
-                        </span>
-                    </div>
-                    <div class="text-sm text-gray-600 space-y-1">
-                        <p class="truncate">${prop.address || '地址未知'}</p>
-                        <div class="flex justify-between">
-                            <span>${prop.prefecture || ''} ${prop.city || ''}</span>
-                            ${prop.price ? `<span class="text-blue-600 font-semibold">${prop.price.toLocaleString()} 万円</span>` : ''}
+            emptyState.classList.add('hidden');
+            grid.innerHTML = properties.map(prop => {
+                const statusBadge = prop.ocr_status || 'pending';
+                const statusColors = {
+                    'pending': 'bg-yellow-100 text-yellow-800',
+                    'processing': 'bg-blue-100 text-blue-800',
+                    'completed': 'bg-green-100 text-green-800',
+                    'failed': 'bg-red-100 text-red-800',
+                    'manual_edit': 'bg-purple-100 text-purple-800',
+                };
+                const statusLabels = {
+                    'pending': '待OCR',
+                    'processing': '处理中',
+                    'completed': '完成',
+                    'failed': '失败',
+                    'manual_edit': '手动编辑',
+                };
+                const llmStatus = prop.llm_status || 'pending';
+                const llmBadge = prop.ocr_status === 'completed' ? 
+                    `<span class="ml-1 ${statusColors[llmStatus] || 'bg-gray-100 text-gray-800'}">${statusLabels[llmStatus] || llmStatus}</span>` : '';
+                
+                return `
+                    <div class="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow cursor-pointer" onclick="showPropertyDetail(${prop.id})">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-semibold text-gray-800 truncate flex-1">${prop.property_name || prop.original_filename}</h3>
+                            <span class="${statusColors[statusBadge] || 'bg-gray-100 text-gray-800'} text-xs px-2 py-1 rounded">
+                                ${statusLabels[statusBadge] || statusBadge}${llmBadge}
+                            </span>
                         </div>
-                        <div class="flex justify-between text-xs text-gray-500">
-                            <span>${prop.room_layout || ''}</span>
-                            <span>${prop.exclusive_area ? prop.exclusive_area + ' m²' : ''}</span>
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <p class="truncate">${prop.address || '地址未知'}</p>
+                            <div class="flex justify-between">
+                                <span>${prop.prefecture || ''} ${prop.city || ''}</span>
+                                ${prop.price ? `<span class="text-blue-600 font-semibold">${prop.price.toLocaleString()} 万円</span>` : ''}
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500">
+                                <span>${prop.room_layout || ''}</span>
+                                <span>${prop.exclusive_area ? prop.exclusive_area + ' m²' : ''}</span>
+                            </div>
+                            ${prop.nearest_station ? `<p class="text-xs truncate">${prop.nearest_station}</p>` : ''}
+                            ${(prop.ocr_error_message || prop.llm_error_message) ? `<p class="text-xs text-red-500 truncate">${(prop.ocr_error_message || prop.llm_error_message).substring(0, 50)}...</p>` : ''}
                         </div>
-                        ${prop.nearest_station ? `<p class="text-xs truncate">${prop.nearest_station}</p>` : ''}
-                        ${(prop.ocr_error_message || prop.llm_error_message) ? `<p class="text-xs text-red-500 truncate">${(prop.ocr_error_message || prop.llm_error_message).substring(0, 50)}...</p>` : ''}
                     </div>
-                </div>
-            `;
-    }).join('');
+                `;
+            }).join('');
         }
 
-        function filterProperties() {
-            const type = document.getElementById('filterType').value;
-            const prefecture = document.getElementById('filterPrefecture').value;
-            const city = document.getElementById('filterCity').value;
-            const minPrice = document.getElementById('filterMinPrice').value;
-            const maxPrice = document.getElementById('filterMaxPrice').value;
-
-            let filtered = allProperties.filter(prop => {
-                if (type && prop.property_type !== type) return false;
-                if (prefecture && !prop.prefecture?.includes(prefecture)) return false;
-                if (city && !prop.city?.includes(city)) return false;
-                if (minPrice && (!prop.price || prop.price < parseInt(minPrice))) return false;
-                if (maxPrice && (!prop.price || prop.price > parseInt(maxPrice))) return false;
-                return true;
-            });
-
-            renderProperties(filtered);
-        }
-
-        function clearFilters() {
-            document.getElementById('filterType').value = '';
-            document.getElementById('filterPrefecture').value = '';
-            document.getElementById('filterCity').value = '';
-            document.getElementById('filterMinPrice').value = '';
-            document.getElementById('filterMaxPrice').value = '';
-            renderProperties(allProperties);
-        }
-
-        function showUploadModal() {
-            document.getElementById('uploadModal').classList.remove('hidden');
-        }
-
-        function hideUploadModal() {
-            document.getElementById('uploadModal').classList.add('hidden');
-            document.getElementById('uploadForm').reset();
-        }
-
-        async function uploadFiles(event) {
-            event.preventDefault();
-            const fileInput = document.getElementById('fileInput');
-            const model = document.getElementById('modelSelect').value;
-            const formData = new FormData();
-            
-            for (const file of fileInput.files) {
-                formData.append('file', file);
-            }
-            formData.append('model', model);
-
-            const response = await fetch('/upload', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (response.redirected) {
-                hideUploadModal();
-                await loadProperties();
-            }
-        }
-
-        let currentDocId = null;
-        let editMode = false;
-        
         function getStatusBadge(status, type) {
             const colors = {
                 'pending': 'bg-yellow-100 text-yellow-800',
@@ -278,7 +219,7 @@
             };
             return `<span class="${colors[status] || 'bg-gray-100 text-gray-800'}">${labels[status] || status}</span>`;
         }
-        
+
         async function showPropertyDetail(id) {
             currentDocId = id;
             const response = await fetch(`/api/property/${id}`);
@@ -286,11 +227,9 @@
             
             document.getElementById('detailTitle').textContent = data.property_name || data.original_filename;
             
-            // 显示状态
             document.getElementById('ocrStatus').innerHTML = getStatusBadge(data.ocr_status || 'pending', 'ocr');
             document.getElementById('llmStatus').innerHTML = getStatusBadge(data.llm_status || 'pending', 'llm');
             
-            // 显示按钮
             document.getElementById('retryOcrBtn').classList.remove('hidden');
             document.getElementById('retryLlmBtn').classList.remove('hidden');
             document.getElementById('saveBtn').classList.add('hidden');
@@ -307,14 +246,9 @@
                 `;
             }
             
-            // 显示OCR文本和错误信息
-            let ocrContent = data.extracted_text || '暂无OCR文本';
-            if (data.ocr_error_message) {
-                ocrContent = `错误: ${data.ocr_error_message}\n\n${ocrContent}`;
-            }
+            const ocrContent = data.extracted_text || '暂无OCR文本';
             document.getElementById('ocrText').textContent = ocrContent;
             
-            // 显示房产信息
             const fields = [
                 { key: 'property_type', label: '房产类型' },
                 { key: 'property_name', label: '房产名称' },
@@ -359,7 +293,6 @@
                             value="${data[f.key] || ''}" 
                             class="w-full border rounded px-2 py-1 text-sm ${editMode ? 'bg-white' : 'bg-gray-50'}" 
                             ${editMode ? '' : 'readonly'}
-                            onchange="markChanged()"
                         >
                     </div>
                 `).join('');
@@ -367,8 +300,7 @@
             document.getElementById('propertyForm').innerHTML = formHtml;
             document.getElementById('detailModal').classList.remove('hidden');
             
-            // 刷新状态（如果有错误或处理中）
-            if (data.ocr_status === 'processing' || data.llm_status === 'processing' || 
+            if (data.ocr_status === 'processing' || data.llm_status === 'processing' ||
                 data.ocr_status === 'pending' || data.llm_status === 'pending') {
                 setTimeout(() => refreshPropertyStatus(id), 3000);
             }
@@ -386,17 +318,21 @@
                 
                 const ocrContent = data.extracted_text || '暂无OCR文本';
                 if (data.ocr_error_message) {
-                    ocrContent = `错误: ${data.ocr_error_message}\n\n${ocrContent}`;
+                    document.getElementById('ocrText').textContent = `错误: ${data.ocr_error_message}\n\n${ocrContent}`;
+                } else {
+                    document.getElementById('ocrText').textContent = ocrContent;
                 }
-                document.getElementById('ocrText').textContent = ocrContent;
                 
-                // 如果还在处理，继续刷新
+                if (data.ocr_status === 'completed' && !editMode) {
+                    document.getElementById('propertyForm').innerHTML = document.getElementById('propertyForm').innerHTML.replace(
+                        /value=""/g,
+                        'value="([^"]*?)"/g
+                    );
+                }
+                
                 if (data.ocr_status === 'processing' || data.llm_status === 'processing' ||
                     data.ocr_status === 'pending' || data.llm_status === 'pending') {
                     setTimeout(() => refreshPropertyStatus(id), 3000);
-                } else if (data.ocr_status === 'completed' && !editMode) {
-                    // 处理完成，刷新表单
-                    showPropertyDetail(id);
                 }
             } catch (e) {
                 console.error('刷新状态失败:', e);
@@ -408,7 +344,6 @@
             const inputs = document.querySelectorAll('#propertyForm input');
             
             if (editMode) {
-                // 进入编辑模式
                 inputs.forEach(input => {
                     input.removeAttribute('readonly');
                     input.classList.remove('bg-gray-50');
@@ -418,7 +353,6 @@
                 document.getElementById('editToggle').textContent = '取消编辑';
                 document.getElementById('retryLlmBtn').classList.add('hidden');
             } else {
-                // 退出编辑模式
                 inputs.forEach(input => {
                     input.setAttribute('readonly', '');
                     input.classList.add('bg-gray-50');
@@ -428,15 +362,17 @@
                 document.getElementById('editToggle').textContent = '编辑';
                 document.getElementById('retryLlmBtn').classList.remove('hidden');
                 
-                // 重新加载，取消修改
-                showPropertyDetail(currentDocId);
+                if (!editMode) {
+                    const currentDocIdValue = document.getElementById('detailTitle').textContent;
+                    showPropertyDetail(currentDocId);
+                }
             }
         }
         
         async function retryOCR() {
             if (!currentDocId) return;
             
-            if (!confirm('确定要重试OCR吗？这将重新处理文档。')) return;
+            if (!confirm('确定要重试OCR吗？')) return;
             
             const btn = document.getElementById('retryOcrBtn');
             const originalText = btn.textContent;
@@ -478,6 +414,7 @@
                 if (result.success) {
                     alert(result.message || 'LLM提取任务已加入队列');
                     await showPropertyDetail(currentDocId);
+                    await loadProperties();
                 } else {
                     alert('添加任务失败: ' + (result.error || '未知错误'));
                 }
@@ -526,66 +463,83 @@
                 btn.textContent = originalText;
             }
         }
-                { key: 'address', label: '地址' },
-                { key: 'prefecture', label: '都道府県' },
-                { key: 'city', label: '区市町村' },
-                { key: 'town', label: '町名' },
-                { key: 'current_status', label: '现状' },
-                { key: 'handover_date', label: '引渡日期' },
-                { key: 'is_renovated', label: '是否新装修' },
-                { key: 'renovation_date', label: '装修结束日期' },
-                { key: 'year_built', label: '建成年份' },
-                { key: 'structure', label: '构造' },
-                { key: 'total_floors', label: '总楼层数' },
-                { key: 'floor_number', label: '所在楼层数' },
-                { key: 'room_layout', label: '房间布局' },
-                { key: 'orientation', label: '朝向' },
-                { key: 'price', label: '售价(万円)' },
-                { key: 'management_fee', label: '管理费(円/月)' },
-                { key: 'repair_fund', label: '修缮基金(円/月)' },
-                { key: 'exclusive_area', label: '专有面积(m²)' },
-                { key: 'land_area', label: '土地面积(m²)' },
-                { key: 'building_area', label: '建筑面积(m²)' },
-                { key: 'balcony_area', label: '阳台面积(m²)' },
-                { key: 'nearest_station', label: '最近车站' },
-                { key: 'nearest_line', label: '最近车站线路' },
-                { key: 'walking_time', label: '到站徒步时长(分)' },
-                { key: 'multiple_stations', label: '多车站可用' },
-                { key: 'has_parking', label: '是否有停车场' },
-                { key: 'shopping_nearby', label: '周边购物' },
-                { key: 'pets_allowed', label: '是否可以养宠物' },
-            ];
-
-            const infoHtml = fields
-                .filter(f => data[f.key] !== null && data[f.key] !== undefined && data[f.key] !== '')
-                .map(f => `
-                    <div class="col-span-1">
-                        <span class="text-gray-500">${f.label}:</span>
-                        <span class="ml-1 font-medium">${data[f.key]}</span>
-                    </div>
-                `).join('');
-
-            document.getElementById('propertyInfo').innerHTML = infoHtml || '<p class="text-gray-500">暂无抽取信息</p>';
-            document.getElementById('detailModal').classList.remove('hidden');
+        
+        function filterProperties() {
+            const type = document.getElementById('filterType').value;
+            const prefecture = document.getElementById('filterPrefecture').value;
+            const city = document.getElementById('filterCity').value;
+            const minPrice = document.getElementById('filterMinPrice').value;
+            const maxPrice = document.getElementById('filterMaxPrice').value;
+            
+            let filtered = allProperties.filter(prop => {
+                if (type && prop.property_type !== type) return false;
+                if (prefecture && !prop.prefecture?.includes(prefecture)) return false;
+                if (city && !prop.city?.includes(city)) return false;
+                if (minPrice && (!prop.price || prop.price < parseInt(minPrice))) return false;
+                if (maxPrice && (!prop.price || prop.price > parseInt(maxPrice))) return false;
+                return true;
+            });
+            
+            renderProperties(filtered);
         }
-
+        
+        function clearFilters() {
+            document.getElementById('filterType').value = '';
+            document.getElementById('filterPrefecture').value = '';
+            document.getElementById('filterCity').value = '';
+            document.getElementById('filterMinPrice').value = '';
+            document.getElementById('filterMaxPrice').value = '';
+            renderProperties(allProperties);
+        }
+        
+        function showUploadModal() {
+            document.getElementById('uploadModal').classList.remove('hidden');
+        }
+        
+        function hideUploadModal() {
+            document.getElementById('uploadModal').classList.add('hidden');
+            document.getElementById('uploadForm').reset();
+        }
+        
+        async function uploadFiles(event) {
+            event.preventDefault();
+            const fileInput = document.getElementById('fileInput');
+            const model = document.getElementById('modelSelect').value;
+            const formData = new FormData();
+            
+            for (const file of fileInput.files) {
+                formData.append('file', file);
+            }
+            formData.append('model', model);
+            
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (response.redirected) {
+                hideUploadModal();
+                await loadProperties();
+            }
+        }
+        
         function hideDetailModal() {
             document.getElementById('detailModal').classList.add('hidden');
             currentDocId = null;
         }
-
-        document.getElementById('detailModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                hideDetailModal();
-            }
-        });
-
+        
         document.getElementById('uploadModal').addEventListener('click', function(e) {
             if (e.target === this) {
                 hideUploadModal();
             }
         });
-
+        
+        document.getElementById('detailModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                hideDetailModal();
+            }
+        });
+        
         loadModels();
         loadProperties();
     </script>
