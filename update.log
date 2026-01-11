@@ -1,5 +1,44 @@
 # 更新历史
 
+## 2026-01-11 - 修复vLLM CUDA错误
+
+### 问题
+
+vLLM服务器在处理队列请求时遇到CUDA错误并崩溃：
+```
+torch.cuda.AcceleratorError: CUDA error: device-side assert triggered
+```
+
+### 根本原因
+
+1. GPU内存利用率设置过高（0.95），接近满载
+2. 并发请求数量过多（2个OCR Workers + 2个LLM Workers）
+3. GPU在处理多个并发请求时触发CUDA断言失败
+
+### 解决方案
+
+1. 降低GPU内存利用率
+   - 从 0.95 降至 0.85
+   - 减少GPU压力
+
+2. 减少并发数
+   - OCR Workers: 2个 → 1个
+   - LLM Workers: 2个 → 1个
+   - 避免并发GPU访问
+
+### 修改文件
+
+- justfile - GPU内存利用率 0.95 → 0.85
+- src/housing_ocr/queue_manager.py - Workers各从2个减少到1个
+
+### 效果
+
+- 减少GPU内存压力
+- 避免并发CUDA错误
+- vLLM服务器更稳定
+
+---
+
 ## 2026-01-11 - 后台任务队列系统
 
 ### 系统架构

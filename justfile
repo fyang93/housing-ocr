@@ -11,7 +11,7 @@ run:
     cd {{PROJECT_DIR}} && uv run python -m housing_ocr.app
 
 server:
-	uv run vllm serve rednote-hilab/dots.ocr --trust-remote-code --async-scheduling --gpu-memory-utilization 0.85
+	uv run vllm serve rednote-hilab/dots.ocr --trust-remote-code --async-scheduling --gpu-memory-utilization 0.95
 
 stop:
     docker stop dots-ocr-server 2>/dev/null || true
