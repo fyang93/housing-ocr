@@ -27,3 +27,9 @@ ENV/
 uploads/
 processed/
 .ruff_cache/
+*.png
+*.jpg
+*.jpeg
+data.db
+uploads/
+processed/

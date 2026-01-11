@@ -1,27 +1,37 @@
-export PROJECT_DIR := "/net/per920a/export/das14a/satoh-lab/yang/repos/housing-ocr"
-
+# 显示所有可用命令
 default:
-    @echo "Housing OCR - 可用命令:"
-    @echo "  just sync          - 安装依赖"
-    @echo "  just run           - 启动 Flask 应用"
-    @echo "  just server        - 启动 vLLM 服务器"
-    @echo "  just stop          - 停止所有服务"
+    @just --list
 
-run:
-    cd {{PROJECT_DIR}} && uv run python -m housing_ocr.app
-
-server:
-	uv run vllm serve rednote-hilab/dots.ocr --trust-remote-code --async-scheduling --gpu-memory-utilization 0.95
-
-stop:
-    docker stop dots-ocr-server 2>/dev/null || true
-    docker rm dots-ocr-server 2>/dev/null || true
-
+# 同步项目依赖
 sync:
-    cd {{PROJECT_DIR}} && uv sync
+    uv sync
 
-install:
-    cd {{PROJECT_DIR}} && uv pip install -e .
+# 创建配置文件
+setup:
+    @test -f config.toml || cp config.example.toml config.toml
+    @mkdir -p uploads
+    @mkdir -p static templates
+    @echo "✓ 配置完成,请编辑 config.toml 设置API key"
 
+# 启动OCR服务
+ocr:
+    uv run vllm serve rednote-hilab/dots.ocr \
+        --trust-remote-code \
+        --async-scheduling \
+        --gpu-memory-utilization 0.95
+
+# 启动Web应用
+run:
+    uv run uvicorn app:app --reload --port 8080
+
+# 清理数据和临时文件
 clean:
-    rm -rf {{PROJECT_DIR}}/uploads/* {{PROJECT_DIR}}/processed/*
+    rm -rf uploads/* data.db __pycache__
+
+# Lint检查
+lint:
+    uv run ruff check src/
+
+# Format代码
+fmt:
+    uv run ruff format src/
