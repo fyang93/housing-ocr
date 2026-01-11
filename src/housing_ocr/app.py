@@ -192,6 +192,10 @@ def api_properties():
                 "price": prop.price,
                 "nearest_station": prop.nearest_station,
                 "created_at": prop.created_at.strftime("%Y-%m-%d %H:%M"),
+                "ocr_status": prop.ocr_status,
+                "llm_status": prop.llm_status,
+                "ocr_error_message": prop.ocr_error_message,
+                "llm_error_message": prop.llm_error_message,
             }
         )
 
