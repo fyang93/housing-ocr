@@ -70,6 +70,8 @@ class LLMExtractor:
     ) -> Dict[str, Any]:
         doc_tag = f"[ID:{doc_id}]" if doc_id else ""
         print(f"{doc_tag} LLM提取中... ({len(ocr_text)} 字符)")
+        if not self.models:
+            raise Exception(f"{doc_tag} 没有可用的模型，请在模型管理中添加模型")
 
         prompt = f"""Extract structured information from following Japanese real estate document.
 
@@ -180,11 +182,9 @@ Example response:
                     continue
                 else:
                     print(f"{doc_tag} 模型 {model} HTTP错误 {status_code}: {str(e)}")
-                    self.remove_failed_model(model)
                     continue
             except ValueError as e:
                 print(f"{doc_tag} 模型 {model} JSON解析失败: {str(e)}")
-                self.remove_failed_model(model)
                 continue
             except Exception as e:
                 print(f"{doc_tag} 模型 {model} 提取失败: {str(e)}")
@@ -198,7 +198,7 @@ Example response:
             self.models.remove(model_name)
             print(f"已移除失败模型: {model_name}")
             if self.update_config_callback:
-                self.update_config_callback(self.models)
+                self.update_config_callback(list(self.models))
 
     def close(self):
         self.client.close()

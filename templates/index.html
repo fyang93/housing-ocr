@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>房产OCR - 日本房产文档智能解析</title>
+    <title>房了个房</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏠</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -57,34 +57,64 @@
 <body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
     <div class="container mx-auto px-4 py-8 max-w-7xl">
         <header class="mb-8">
-            <div class="flex justify-between items-center gap-4">
+            <nav class="flex justify-between items-center gap-4">
                 <div class="flex items-center gap-3">
                     <span class="text-3xl">🏠</span>
                     <div>
                         <h1 class="text-2xl font-bold text-gray-900">房了个房</h1>
-                        <p class="text-sm text-gray-500">日本房产文档智能解析</p>
+                        <p class="text-sm text-gray-500 hidden sm:block">日本房产文档智能解析</p>
                     </div>
                 </div>
+
                 <div class="flex items-center gap-3">
-                    <button onclick="openLocationModal()" class="px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 transition-all font-medium shadow-sm flex items-center gap-2">
+                    <button onclick="openUploadModal()" class="hidden md:flex px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white transition-all font-medium shadow-lg shadow-blue-300 items-center gap-2">
+                        <i data-lucide="upload" class="w-5 h-5"></i>
+                        上传文档
+                    </button>
+                    <button onclick="openUploadModal()" class="md:hidden w-12 h-12 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white transition-all font-medium shadow-lg shadow-blue-300 flex items-center justify-center">
+                        <i data-lucide="upload" class="w-6 h-6"></i>
+                    </button>
+
+                    <button onclick="openLocationModal()" class="hidden lg:flex px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 transition-all font-medium shadow-sm items-center gap-2">
                         <i data-lucide="map" class="w-5 h-5 text-gray-500"></i>
                         位置管理
                     </button>
-                    <button onclick="openStationModal()" class="px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 transition-all font-medium shadow-sm flex items-center gap-2">
+                    <button onclick="openStationModal()" class="hidden lg:flex px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 transition-all font-medium shadow-sm items-center gap-2">
                         <i data-lucide="train" class="w-5 h-5 text-gray-500"></i>
                         车站时长
                     </button>
-                    <button onclick="openModelModal()" class="px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 transition-all font-medium shadow-sm flex items-center gap-2">
+                    <button onclick="openModelModal()" class="hidden lg:flex px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 transition-all font-medium shadow-sm items-center gap-2">
                         <i data-lucide="settings" class="w-5 h-5 text-gray-500"></i>
                         模型管理
                     </button>
-                    <button onclick="deleteAllUnfavorited()" class="px-4 py-2.5 rounded-xl bg-white border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition-all font-medium shadow-sm flex items-center gap-2">
+                    <button onclick="deleteAllUnfavorited()" class="hidden lg:flex px-4 py-2.5 rounded-xl bg-white border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition-all font-medium shadow-sm items-center gap-2">
                         <i data-lucide="trash-2" class="w-5 h-5"></i>
                         清理
                     </button>
-                    <button onclick="openUploadModal()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white transition-all font-medium shadow-lg shadow-blue-300 flex items-center gap-2">
-                        <i data-lucide="upload" class="w-5 h-5"></i>
-                        上传文档
+
+                    <button onclick="toggleMobileMenu()" class="lg:hidden w-12 h-12 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 transition-all shadow-sm flex items-center justify-center">
+                        <i data-lucide="menu" id="menuIcon" class="w-6 h-6 text-gray-600"></i>
+                    </button>
+                </div>
+            </nav>
+
+            <div id="mobileMenu" class="hidden lg:hidden mt-4 p-4 bg-white rounded-2xl border border-gray-200 shadow-lg">
+                <div class="flex flex-col gap-2">
+                    <button onclick="openLocationModal(); toggleMobileMenu()" class="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all font-medium flex items-center gap-3">
+                        <i data-lucide="map" class="w-5 h-5 text-gray-500"></i>
+                        位置管理
+                    </button>
+                    <button onclick="openStationModal(); toggleMobileMenu()" class="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all font-medium flex items-center gap-3">
+                        <i data-lucide="train" class="w-5 h-5 text-gray-500"></i>
+                        车站时长
+                    </button>
+                    <button onclick="openModelModal(); toggleMobileMenu()" class="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all font-medium flex items-center gap-3">
+                        <i data-lucide="settings" class="w-5 h-5 text-gray-500"></i>
+                        模型管理
+                    </button>
+                    <button onclick="deleteAllUnfavorited(); toggleMobileMenu()" class="w-full px-4 py-3 rounded-xl bg-white border border-red-200 text-red-600 hover:bg-red-50 transition-all font-medium flex items-center gap-3">
+                        <i data-lucide="trash-2" class="w-5 h-5"></i>
+                        清理
                     </button>
                 </div>
             </div>
@@ -540,6 +570,18 @@
         function toggleFilterPanel() {
             const panel = document.getElementById('filterPanel');
             panel.classList.toggle('hidden');
+        }
+
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobileMenu');
+            const icon = document.getElementById('menuIcon');
+            menu.classList.toggle('hidden');
+            if (menu.classList.contains('hidden')) {
+                icon.setAttribute('data-lucide', 'menu');
+            } else {
+                icon.setAttribute('data-lucide', 'x');
+            }
+            lucide.createIcons();
         }
 
         dropZone.addEventListener('click', () => fileInput.click());

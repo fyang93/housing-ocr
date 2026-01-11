@@ -36,7 +36,7 @@ db = Database(config["app"]["db_path"])
 
 
 def update_models_callback(models):
-    config["llm"]["models"] = models
+    config["llm"]["models"] = list(models)
     save_config(config)
 
 
@@ -168,16 +168,17 @@ async def add_model(model: dict):
     if "models" not in config["llm"]:
         config["llm"]["models"] = []
 
-    models = config["llm"]["models"]
-    if model_name in models:
+    new_models = list(config["llm"]["models"])
+    if model_name in new_models:
         raise HTTPException(status_code=400, detail="模型已存在")
 
-    models.append(model_name)
+    new_models.append(model_name)
+    config["llm"]["models"] = new_models
     save_config(config)
 
-    processor.llm_extractor.models = models
+    processor.llm_extractor.models = list(new_models)
 
-    return JSONResponse(content={"success": True, "models": models})
+    return JSONResponse(content={"success": True, "models": new_models})
 
 
 @app.post("/api/models/delete")
@@ -189,7 +190,7 @@ async def delete_model(request: dict):
     if "llm" not in config or "models" not in config["llm"]:
         raise HTTPException(status_code=404, detail="模型不存在")
 
-    models = config["llm"]["models"]
+    models = list(config["llm"]["models"])
     if model_name not in models:
         raise HTTPException(status_code=404, detail="模型不存在")
 
@@ -197,9 +198,10 @@ async def delete_model(request: dict):
         raise HTTPException(status_code=400, detail="至少保留一个模型")
 
     models.remove(model_name)
+    config["llm"]["models"] = models
     save_config(config)
 
-    processor.llm_extractor.models = models
+    processor.llm_extractor.models = list(models)
 
     return JSONResponse(content={"success": True, "models": models})
 
@@ -212,10 +214,10 @@ async def reorder_models(request: dict):
 
     if "llm" not in config:
         config["llm"] = {}
-    config["llm"]["models"] = models
+    config["llm"]["models"] = list(models)
     save_config(config)
 
-    processor.llm_extractor.models = models
+    processor.llm_extractor.models = list(models)
 
     return JSONResponse(content={"success": True, "models": models})
 

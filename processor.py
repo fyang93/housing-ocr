@@ -13,7 +13,7 @@ class DocumentProcessor:
         self.ocr_client = OCRClient(config["ocr"]["endpoint"], config["ocr"]["model"])
 
         def _update_models_callback(models):
-            config["llm"]["models"] = models
+            config["llm"]["models"] = list(models)
             config_path = Path(__file__).parent / "config.toml"
             with open(config_path, "wb") as f:
                 tomli_w.dump(config, f)
