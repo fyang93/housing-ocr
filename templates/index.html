@@ -942,32 +942,44 @@
                             </button>
                         </div>
                         
-                        <h3 class="font-semibold text-gray-900 mb-3 line-clamp-1 pr-14" style="font-size: 1rem;">${props.property_name || doc.filename}</h3>
+                        <h3 class="font-semibold text-gray-900 mb-3 line-clamp-1 pr-14">${props.property_name || doc.filename}</h3>
                         
-                        <div class="space-y-2.5 mb-4">
-                            <div class="flex items-start gap-2.5">
-                                <i data-lucide="map-pin" class="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5"></i>
-                                <p class="text-sm text-gray-600 leading-relaxed">${addressHtml}</p>
-                            </div>
-                            <div class="flex items-center gap-2.5">
-                                <i data-lucide="yen" class="w-4 h-4 text-gray-400 flex-shrink-0"></i>
-                                ${priceHtml}
-                            </div>
-                            <div class="flex items-center gap-2 flex-wrap">
-                                ${props.land_rights ? `<span class="inline-flex items-center px-2 py-0.5 bg-orange-50 rounded-full text-sm text-orange-700">${props.land_rights}</span>` : ''}
-                                ${props.room_layout ? `<span class="inline-flex items-center px-2 py-0.5 bg-gray-100 rounded-full text-sm text-gray-700">${props.room_layout}</span>` : ''}
-                                ${props.exclusive_area ? `<span class="inline-flex items-center px-2 py-0.5 bg-blue-50 rounded-full text-sm text-blue-700">${props.exclusive_area}m²${props.balcony_area ? `(+${props.balcony_area}m²)` : ''}</span>` : ''}
-                                ${props.build_year ? `<span class="inline-flex items-center px-2 py-0.5 bg-amber-50 rounded-full text-sm text-amber-700">${new Date().getFullYear() - props.build_year}年(${props.build_year}年)</span>` : ''}
-                                ${(props.stations && Array.isArray(props.stations) && props.stations.length > 0) ? props.stations.map(s => `<span class="inline-flex items-center px-2 py-0.5 bg-emerald-50 rounded-full text-sm text-emerald-700"><i data-lucide="train" class="w-3 h-3 mr-1"></i>${s.name} <i data-lucide="footprints" class="w-3 h-3 mx-0.5"></i>${s.walking_minutes}分</span>`).join('') : ''}
-                                ${locationTags}
-                                ${props.pet_policy && props.pet_policy.includes('可') ? `<span class="inline-flex items-center px-2 py-0.5 bg-pink-50 rounded-full text-sm text-pink-700"><i data-lucide="heart" class="w-3 h-3 mr-1"></i>可养宠</span>` : ''}
+                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-3 mb-3">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    ${hasPrice ? `<span class="text-2xl font-bold text-gray-900">${props.price}</span><span class="text-gray-600 ml-1 text-sm">万円</span>` : '<div class="animate-pulse bg-gray-300 rounded h-8 w-28"></div>'}
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    ${props.exclusive_area ? `<span class="text-sm font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded-lg">${props.exclusive_area}m²</span>` : ''}
+                                    ${props.room_layout ? `<span class="text-sm font-medium text-gray-700 bg-gray-100 px-2 py-1 rounded-lg">${props.room_layout}</span>` : ''}
+                                </div>
                             </div>
                         </div>
                         
-                        <div class="flex items-center justify-between">
+                        <div class="space-y-2 mb-3">
+                            <div class="flex items-start gap-2">
+                                <i data-lucide="map-pin" class="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5"></i>
+                                <p class="text-sm text-gray-600 leading-relaxed">${addressHtml}</p>
+                            </div>
+                            ${(props.stations && Array.isArray(props.stations) && props.stations.length > 0) ? `
+                                <div class="flex items-center gap-2 text-sm text-gray-600">
+                                    <i data-lucide="train" class="w-4 h-4 text-emerald-500 flex-shrink-0"></i>
+                                    <span>${props.stations.map(s => `${s.name} ${s.walking_minutes}分`).join('、')}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="flex flex-wrap gap-1.5 mb-3">
+                            ${props.land_rights ? `<span class="inline-flex items-center px-2 py-0.5 bg-orange-50 rounded text-xs text-orange-600">${props.land_rights}</span>` : ''}
+                            ${props.build_year ? `<span class="inline-flex items-center px-2 py-0.5 bg-amber-50 rounded text-xs text-amber-600">${new Date().getFullYear() - props.build_year}年</span>` : ''}
+                            ${props.pet_policy && props.pet_policy.includes('可') ? `<span class="inline-flex items-center px-2 py-0.5 bg-pink-50 rounded text-xs text-pink-600"><i data-lucide="heart" class="w-3 h-3 mr-0.5"></i>可养宠</span>` : ''}
+                            ${locationTags}
+                        </div>
+                        
+                        <div class="flex items-center justify-between pt-2 border-t border-gray-100">
                             <div class="flex items-center gap-1.5">
-                                <span class="px-2.5 py-1 rounded-full text-xs font-medium text-white ${status.statusClass}">${status.status}</span>
-                                ${doc.extracted_model ? `<span class="inline-flex items-center px-2 py-0.5 bg-purple-50 rounded-full text-sm text-purple-700" title="${doc.extracted_model}">${doc.extracted_model.split('/').pop().split(':')[0]}</span>` : ''}
+                                <span class="px-2 py-0.5 rounded-full text-xs font-medium text-white ${status.statusClass}">${status.status}</span>
+                                ${doc.extracted_model ? `<span class="text-xs text-gray-400">${doc.extracted_model.split('/').pop().split(':')[0]}</span>` : ''}
                             </div>
                             <span class="text-xs text-gray-400">${new Date(doc.upload_time).toLocaleDateString('zh-CN')}</span>
                         </div>
