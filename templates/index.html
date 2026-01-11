@@ -918,7 +918,7 @@
                     }
                 });
                 const locationTags = Array.from(locationMap.values())
-                    .map(sd => `<span class="inline-flex items-center px-2 py-0.5 bg-indigo-50 rounded-full text-sm text-indigo-700" title="到${sd.location_name}的时长">${sd.location_name}: ${sd.duration}分</span>`)
+                    .map(sd => `<span class="inline-flex items-center px-2 py-0.5 bg-purple-50 rounded text-xs text-purple-600">${sd.location_name} ${sd.duration}分</span>`)
                     .join('');
 
                 const card = document.createElement('div');
@@ -950,7 +950,7 @@
                                     ${hasPrice ? `<span class="text-2xl font-bold text-gray-900">${props.price}</span><span class="text-gray-600 ml-1 text-sm">万円</span>` : '<div class="animate-pulse bg-gray-300 rounded h-8 w-28"></div>'}
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    ${props.exclusive_area ? `<span class="text-sm font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded-lg">${props.exclusive_area}m²</span>` : ''}
+                                    ${props.exclusive_area ? `<span class="text-sm font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded-lg">${props.exclusive_area}m²${props.balcony_area ? `(+${props.balcony_area}m²)` : ''}</span>` : ''}
                                     ${props.room_layout ? `<span class="text-sm font-medium text-gray-700 bg-gray-100 px-2 py-1 rounded-lg">${props.room_layout}</span>` : ''}
                                 </div>
                             </div>
