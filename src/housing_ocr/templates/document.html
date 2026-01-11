@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ document.original_filename }} - 房产文档 OCR</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">{{ document.original_filename }}</h1>
+            <a href="/" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">返回列表</a>
+        </div>
+        
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-white p-4 rounded shadow">
+                <p class="text-gray-500 text-sm">哈希文件名</p>
+                <p class="font-mono text-sm break-all">{{ document.hashed_filename }}</p>
+            </div>
+            <div class="bg-white p-4 rounded shadow">
+                <p class="text-gray-500 text-sm">文件类型</p>
+                <p class="font-semibold">{{ document.file_type.upper() }}</p>
+            </div>
+            <div class="bg-white p-4 rounded shadow">
+                <p class="text-gray-500 text-sm">文件大小</p>
+                <p class="font-semibold">{{ (document.file_size / 1024)|round(2) }} KB</p>
+            </div>
+            <div class="bg-white p-4 rounded shadow">
+                <p class="text-gray-500 text-sm">状态</p>
+                <span class="px-2 py-1 rounded text-sm {% if document.status == 'processed' %}bg-green-100 text-green-800{% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                    {% if document.status == 'processed' %}已完成{% else %}处理中{% endif %}
+                </span>
+            </div>
+            <div class="bg-white p-4 rounded shadow">
+                <p class="text-gray-500 text-sm">创建时间</p>
+                <p class="font-semibold">{{ document.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+            </div>
+            <div class="bg-white p-4 rounded shadow">
+                <p class="text-gray-500 text-sm">文件哈希</p>
+                <p class="font-mono text-xs break-all">{{ document.file_hash }}</p>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">识别文本</h2>
+            <pre class="bg-gray-50 p-4 rounded overflow-auto max-h-96 whitespace-pre-wrap font-mono text-sm">{{ document.extracted_text }}</pre>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">文档预览</h2>
+            <a href="/uploads/{{ document.hashed_filename }}" target="_blank">
+                <img src="/uploads/{{ document.hashed_filename }}" alt="预览" class="max-h-96 mx-auto rounded border">
+            </a>
+        </div>
+    </div>
+</body>
+</html>
