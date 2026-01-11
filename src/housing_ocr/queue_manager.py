@@ -385,4 +385,4 @@ class QueueManager:
 
 
 # 全局队列管理器实例
-queue_manager = QueueManager(ocr_workers=2, llm_workers=2)
+queue_manager = QueueManager(ocr_workers=1, llm_workers=1)
