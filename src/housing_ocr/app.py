@@ -225,7 +225,7 @@ def api_property_detail(doc_id):
             "property_name": document.property_name,
             "room_number": document.room_number,
             "address": document.address,
-            "prefure": document.prefecture,
+            "prefecture": document.prefecture,
             "city": document.city,
             "town": document.town,
             "current_status": document.current_status,
