@@ -1157,14 +1157,15 @@
                             </div>
                             <div class="flex items-center gap-1.5">
                                 ${props.exclusive_area ? `<span class="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium">${props.exclusive_area}m²</span>` : ''}
-                                ${props.room_layout ? `<span class="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium">${props.room_layout}</span>` : ''}
+                                ${props.balcony_area ? `<span class="px-2.5 py-1 bg-teal-50 text-teal-700 rounded-lg text-sm font-medium">阳台${props.balcony_area}m²</span>` : ''}
                             </div>
                         </div>
 
                         <div class="flex flex-wrap items-center gap-2 mb-3">
+                            ${props.room_layout ? `<span class="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-medium">${props.room_layout}</span>` : ''}
                             ${props.land_rights ? `<span class="px-2 py-0.5 bg-orange-50 text-orange-600 rounded text-xs">${props.land_rights}</span>` : ''}
                             ${props.build_year ? `<span class="px-2 py-0.5 bg-amber-50 text-amber-600 rounded text-xs">${new Date().getFullYear() - props.build_year}年</span>` : ''}
-                            ${props.pet_policy && props.pet_policy.includes('可') ? `<span class="px-2 py-0.5 bg-pink-50 text-pink-600 rounded text-xs"><i data-lucide="paw-print" class="w-3 h-3 mr-0.5 inline"></i>可养宠</span>` : ''}
+                            ${props.pet_policy && props.pet_policy.includes('可') ? `<span class="px-2 py-0.5 bg-pink-50 text-pink-600 rounded text-xs">可养宠</span>` : ''}
                             ${props.corner_room ? `<span class="px-2 py-0.5 bg-violet-50 text-violet-600 rounded text-xs">角部屋</span>` : ''}
                         </div>
 
