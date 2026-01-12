@@ -122,7 +122,8 @@ Example response:
     "stations": [
         {{"name": "渋谷", "line": "山手线", "walking_minutes": 5}},
         {{"name": "表参道", "line": "銀座線", "walking_minutes": 8}}
-    ]
+    ],
+    "parking": "空無 (月額23,000円/台)",
 }}"""
 
         for model in self.models[:]:

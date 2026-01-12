@@ -169,6 +169,10 @@
                 opacity: 1;
             }
         }
+
+        .rotate-180 {
+            transform: rotate(180deg);
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
@@ -400,80 +404,82 @@
     </div>
 
     <div id="detailModal" class="fixed inset-0 modal-overlay hidden z-50 overflow-y-auto">
-        <div class="min-h-screen px-4 py-8 flex items-center justify-center">
+        <div class="min-h-screen px-4 py-4 flex items-center justify-center">
             <div class="bg-white rounded-2xl shadow-2xl max-w-6xl w-full border border-gray-100">
-                <div class="flex justify-between items-center px-6 py-4 border-b border-gray-100">
-                    <h2 id="modalTitle" class="text-xl font-bold text-gray-900"></h2>
+                <div class="flex justify-between items-center px-4 py-3 border-b border-gray-100">
+                    <h2 id="modalTitle" class="text-lg font-bold text-gray-900"></h2>
                     <button onclick="closeModal()" class="w-8 h-8 rounded-lg hover:bg-gray-100 transition flex items-center justify-center text-gray-400 hover:text-gray-600">
                         <i data-lucide="x" class="w-5 h-5"></i>
                     </button>
                 </div>
-                <div class="p-6">
-                    <div class="mb-6">
-                        <h3 class="font-semibold text-gray-900 mb-4">文档预览</h3>
-                        <div id="previewContainer" class="border border-gray-200 rounded-xl bg-gray-50 overflow-hidden cursor-pointer relative min-h-[400px]" onclick="openImageViewer(event)" title="点击查看大图">
-                            <div id="previewLoading" class="absolute inset-0 bg-gray-50 z-10 p-8 flex flex-col items-center justify-center">
-                                <div class="w-full max-w-2xl space-y-4">
-                                    <div class="skeleton-shimmer h-4 w-3/4 rounded-md skeleton-pulse"></div>
-                                    <div class="skeleton-shimmer h-3 w-1/2 rounded-md skeleton-pulse" style="animation-delay: 0.2s"></div>
-                                    <div class="flex gap-4 mt-6">
-                                        <div class="flex-1 space-y-3">
-                                            <div class="skeleton-shimmer h-2 w-full rounded-md skeleton-pulse" style="animation-delay: 0.3s"></div>
-                                            <div class="skeleton-shimmer h-2 w-5/6 rounded-md skeleton-pulse" style="animation-delay: 0.4s"></div>
-                                            <div class="skeleton-shimmer h-2 w-4/5 rounded-md skeleton-pulse" style="animation-delay: 0.5s"></div>
+                <div class="p-4">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div>
+                            <h3 class="font-semibold text-gray-900 mb-3">文档预览</h3>
+                            <div id="previewContainer" class="border border-gray-200 rounded-xl bg-gray-50 overflow-hidden cursor-pointer relative" onclick="openImageViewer(event)" title="点击查看大图">
+                                <div id="previewLoading" class="absolute inset-0 bg-gray-50 z-10 p-8 flex flex-col items-center justify-center">
+                                    <div class="w-full max-w-2xl space-y-4">
+                                        <div class="skeleton-shimmer h-4 w-3/4 rounded-md skeleton-pulse"></div>
+                                        <div class="skeleton-shimmer h-3 w-1/2 rounded-md skeleton-pulse" style="animation-delay: 0.2s"></div>
+                                        <div class="flex gap-4 mt-6">
+                                            <div class="flex-1 space-y-3">
+                                                <div class="skeleton-shimmer h-2 w-full rounded-md skeleton-pulse" style="animation-delay: 0.3s"></div>
+                                                <div class="skeleton-shimmer h-2 w-5/6 rounded-md skeleton-pulse" style="animation-delay: 0.4s"></div>
+                                                <div class="skeleton-shimmer h-2 w-4/5 rounded-md skeleton-pulse" style="animation-delay: 0.5s"></div>
+                                            </div>
+                                            <div class="flex-1 space-y-3">
+                                                <div class="skeleton-shimmer h-2 w-full rounded-md skeleton-pulse" style="animation-delay: 0.35s"></div>
+                                                <div class="skeleton-shimmer h-3/4 rounded-md skeleton-pulse" style="animation-delay: 0.45s"></div>
+                                                <div class="skeleton-shimmer h-2 w-5/6 rounded-md skeleton-pulse" style="animation-delay: 0.55s"></div>
+                                            </div>
                                         </div>
-                                        <div class="flex-1 space-y-3">
-                                            <div class="skeleton-shimmer h-2 w-full rounded-md skeleton-pulse" style="animation-delay: 0.35s"></div>
-                                            <div class="skeleton-shimmer h-2 w-3/4 rounded-md skeleton-pulse" style="animation-delay: 0.45s"></div>
-                                            <div class="skeleton-shimmer h-2 w-5/6 rounded-md skeleton-pulse" style="animation-delay: 0.55s"></div>
+                                        <div class="mt-6 grid grid-cols-2 gap-4">
+                                            <div class="skeleton-shimmer h-32 rounded-lg skeleton-pulse" style="animation-delay: 0.6s"></div>
+                                            <div class="skeleton-shimmer h-32 rounded-lg skeleton-pulse" style="animation-delay: 0.7s"></div>
                                         </div>
-                                    </div>
-                                    <div class="mt-6 grid grid-cols-2 gap-4">
-                                        <div class="skeleton-shimmer h-32 rounded-lg skeleton-pulse" style="animation-delay: 0.6s"></div>
-                                        <div class="skeleton-shimmer h-32 rounded-lg skeleton-pulse" style="animation-delay: 0.7s"></div>
-                                    </div>
-                                    <div class="space-y-2 mt-4">
-                                        <div class="skeleton-shimmer h-2 w-full rounded-md skeleton-pulse" style="animation-delay: 0.8s"></div>
-                                        <div class="skeleton-shimmer h-2 w-2/3 rounded-md skeleton-pulse" style="animation-delay: 0.9s"></div>
+                                        <div class="space-y-2 mt-4">
+                                            <div class="skeleton-shimmer h-2 w-full rounded-md skeleton-pulse" style="animation-delay: 0.8s"></div>
+                                            <div class="skeleton-shimmer h-2 w-2/3 rounded-md skeleton-pulse" style="animation-delay: 0.9s"></div>
+                                        </div>
                                     </div>
                                 </div>
+                                <img id="previewImage" class="w-full h-auto object-contain max-h-[50vh] mx-auto hidden" alt="文档预览" onload="onPreviewLoaded()" onerror="this.style.display='none'; this.parentElement.innerHTML='<p class=\\'text-gray-500 p-4\\'>预览不可用</p>'">
                             </div>
-                            <img id="previewImage" class="w-full h-auto object-contain max-h-[60vh] mx-auto hidden" alt="文档预览" onload="onPreviewLoaded()" onerror="this.style.display='none'; this.parentElement.innerHTML='<p class=\\'text-gray-500 p-4\\'>预览不可用</p>'">
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                        <div>
-                            <h4 class="font-medium text-gray-700 mb-2 flex items-center gap-2">
-                                <i data-lucide="file-text" class="w-4 h-4"></i>
-                                OCR文本
-                            </h4>
-                            <div id="ocrTextContainer" class="border border-gray-200 rounded-xl bg-gray-50 p-3 max-h-[300px] overflow-y-auto text-sm text-gray-600 font-mono whitespace-pre-wrap"></div>
                         </div>
                         <div>
                             <h4 class="font-medium text-gray-700 mb-2 flex items-center gap-2">
                                 <i data-lucide="home" class="w-4 h-4"></i>
                                 房产信息
                             </h4>
-                            <form id="propertiesForm" class="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                            <form id="propertiesForm" class="space-y-1 max-h-[calc(100vh-280px)] lg:max-h-[calc(50vh+100px)] overflow-y-auto pr-2 pl-1">
                             </form>
                         </div>
                     </div>
 
-                    <div class="flex flex-col md:flex-row justify-center gap-3 pt-4 border-t border-gray-100">
-                        <button onclick="retryOCR()" class="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-medium shadow-md shadow-amber-300 transition-all active:scale-95">
+                    <div class="mt-4 pt-3 border-t border-gray-100">
+                        <button onclick="toggleOcrText()" id="toggleOcrBtn" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition-all text-sm">
+                            <i data-lucide="chevron-down" id="toggleOcrIcon" class="w-4 h-4 transition-transform"></i>
+                            <span>OCR文本</span>
+                        </button>
+                        <div id="ocrTextWrapper" class="hidden mt-2">
+                            <div id="ocrTextContainer" class="border border-gray-200 rounded-lg bg-gray-50 p-3 max-h-[200px] overflow-y-auto text-sm text-gray-600 font-mono whitespace-pre-wrap"></div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col md:flex-row justify-center gap-2 pt-3 border-t border-gray-100 mt-4">
+                        <button onclick="retryOCR()" class="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-medium shadow-md shadow-amber-300 transition-all active:scale-95 text-sm">
                             <i data-lucide="refresh-cw" class="w-4 h-4"></i>
                             重试OCR
                         </button>
-                        <button onclick="retryLLM()" class="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-medium shadow-md shadow-blue-300 transition-all active:scale-95">
+                        <button onclick="retryLLM()" class="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-medium shadow-md shadow-blue-300 transition-all active:scale-95 text-sm">
                             <i data-lucide="sparkles" class="w-4 h-4"></i>
                             重试LLM
                         </button>
-                        <button onclick="saveProperties()" class="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium shadow-lg shadow-green-300 transition-all active:scale-95 md:shadow-md">
-                            <i data-lucide="check" class="w-5 h-5 md:w-4 md:h-4"></i>
+                        <button onclick="saveProperties()" class="flex items-center justify-center gap-2 px-6 py-2 rounded-lg bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium shadow-lg shadow-green-300 transition-all active:scale-95 md:shadow-md text-sm">
+                            <i data-lucide="check" class="w-4 h-4"></i>
                             保存修改
                         </button>
-                        <button onclick="deleteDocument()" class="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 font-medium transition-all active:scale-95 md:bg-red-500 md:hover:bg-red-600 md:text-white md:shadow-md md:shadow-red-300">
+                        <button onclick="deleteDocument()" class="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-medium transition-all active:scale-95 md:bg-red-500 md:hover:bg-red-600 md:text-white md:shadow-md md:shadow-red-300 text-sm">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                             删除文档
                         </button>
@@ -862,10 +868,10 @@
             
             if (doc.llm_status === 'done' && doc.ocr_status === 'done' && hasValidProperties) {
                 return { priority: 2, status: '完成', statusClass: 'bg-emerald-500' };
-            } else if (doc.llm_status === 'processing' || doc.ocr_status === 'processing') {
-                return { priority: 3, status: '处理中', statusClass: 'bg-amber-500' };
-            } else if (doc.ocr_status === 'done' && hasOcrText && doc.llm_status === 'pending') {
+            } else if (doc.ocr_status === 'done' && hasOcrText && (doc.llm_status === 'pending' || doc.llm_status === 'processing')) {
                 return { priority: 3, status: '处理中', statusClass: 'bg-blue-500' };
+            } else if (doc.ocr_status === 'processing' || doc.llm_status === 'processing') {
+                return { priority: 3, status: '处理中', statusClass: 'bg-amber-500' };
             } else if (doc.ocr_status === 'done' && !hasOcrText) {
                 return { priority: 3, status: '处理中', statusClass: 'bg-amber-500' };
             } else if (doc.ocr_status === 'pending') {
@@ -1311,83 +1317,171 @@
             ];
 
             form.innerHTML = '';
-            
-            // Compact grid for top fields
-            const topFields = ['address', 'price', 'property_name', 'room_layout', 'exclusive_area', 'build_year', 'structure', 'floor_number', 'total_floors'];
-            
-            const gridDiv = document.createElement('div');
-            gridDiv.className = 'grid grid-cols-2 gap-2 mb-3';
-            
-            for (const key of topFields) {
-                if (fieldLabels[key]) {
-                    const value = props[key] || '';
-                    const div = document.createElement('div');
-                    div.className = 'flex flex-col';
-                    div.innerHTML = `
-                        <label class="text-xs text-gray-500 mb-0.5">${fieldLabels[key]}</label>
-                        <input type="text" name="${key}" value="${value}" 
-                               class="px-2 py-1.5 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white text-sm">
-                    `;
-                    gridDiv.appendChild(div);
-                }
-            }
-            form.appendChild(gridDiv);
-            
-            // Secondary fields in compact rows
-            const secondaryFields = ['orientation', 'management_fee', 'repair_fee', 'balcony_area'];
-            const secondaryDiv = document.createElement('div');
-            secondaryDiv.className = 'grid grid-cols-3 gap-2 mb-3';
-            
-            for (const key of secondaryFields) {
-                if (fieldLabels[key]) {
-                    const value = props[key] || '';
-                    const div = document.createElement('div');
-                    div.className = 'flex flex-col';
-                    div.innerHTML = `
-                        <label class="text-xs text-gray-500 mb-0.5">${fieldLabels[key]}</label>
-                        <input type="text" name="${key}" value="${value}" 
-                               class="px-2 py-1.5 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white text-sm">
-                    `;
-                    secondaryDiv.appendChild(div);
-                }
-            }
-            form.appendChild(secondaryDiv);
-            
-            // Other fields in compact grid
-            const otherFields = ['corner_room', 'prefecture', 'city', 'land_rights', 'current_status', 'handover_date', 'parking', 'pet_policy'];
-            const otherDiv = document.createElement('div');
-            otherDiv.className = 'grid grid-cols-4 gap-2';
-            
-            for (const key of otherFields) {
-                if (fieldLabels[key]) {
-                    let value = props[key] || '';
-                    // corner_room 特殊处理：如果是 true 显示"角部屋"
-                    if (key === 'corner_room' && value === true) {
-                        value = '角部屋';
-                    }
-                    const div = document.createElement('div');
-                    div.className = 'flex flex-col';
-                    div.innerHTML = `
-                        <label class="text-xs text-gray-500 mb-0.5">${fieldLabels[key]}</label>
-                        <input type="text" name="${key}" value="${value}" 
-                               class="px-2 py-1.5 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white text-sm">
-                    `;
-                    otherDiv.appendChild(div);
-                }
-            }
-            form.appendChild(otherDiv);
+
+            // Price section - editable
+            const priceDiv = document.createElement('div');
+            priceDiv.className = 'mb-3';
+            priceDiv.innerHTML = `
+                <label class="text-xs text-gray-500 mb-1 block">售价 (万円)</label>
+                <input type="text" name="price" value="${props.price || ''}" 
+                       class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-gradient-to-r from-emerald-50 to-blue-50 text-xl font-bold text-emerald-600"
+                       >
+            `;
+            form.appendChild(priceDiv);
+
+            // Main info row - editable
+            const mainRow = document.createElement('div');
+            mainRow.className = 'grid grid-cols-3 gap-3 mb-3';
+            mainRow.innerHTML = `
+                <div>
+                    <label class="text-xs text-gray-500 mb-1 block">户型</label>
+                    <input type="text" name="room_layout" value="${props.room_layout || ''}" 
+                           class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500 mb-1 block">面积 (m²)</label>
+                    <input type="text" name="exclusive_area" value="${props.exclusive_area || ''}" 
+                           class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500 mb-1 block">建成年份</label>
+                    <input type="text" name="build_year" value="${props.build_year || ''}" 
+                           class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
+                </div>
+            `;
+            form.appendChild(mainRow);
+
+            // Address - editable
+            const addressRow = document.createElement('div');
+            addressRow.className = 'mb-3';
+            addressRow.innerHTML = `
+                <label class="text-xs text-gray-500 mb-1 block">地址</label>
+                <input type="text" name="address" value="${props.address || ''}" 
+                       class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
+            `;
+            form.appendChild(addressRow);
+
+            // Building info section
+            const buildingHeader = document.createElement('div');
+            buildingHeader.className = 'text-xs font-medium text-gray-400 uppercase tracking-wide mb-2 mt-4';
+            buildingHeader.textContent = '建筑信息';
+            form.appendChild(buildingHeader);
+
+            const buildingRow = document.createElement('div');
+            buildingRow.className = 'grid grid-cols-6 gap-2 mb-3';
+            buildingRow.innerHTML = `
+                <div class="col-span-1">
+                    <label class="text-xs text-gray-500 mb-1 block">构造</label>
+                    <input type="text" name="structure" value="${props.structure || ''}" 
+                           class="w-full px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
+                </div>
+                <div class="col-span-2">
+                    <label class="text-xs text-gray-500 mb-1 block">楼层</label>
+                    <div class="flex gap-1">
+                        <input type="text" name="floor_number" value="${props.floor_number || ''}" 
+                               class="w-1/2 px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
+                        <span class="flex items-center text-gray-400 text-sm">/</span>
+                        <input type="text" name="total_floors" value="${props.total_floors || ''}" 
+                               class="w-1/2 px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
+                    </div>
+                </div>
+                <div class="col-span-1">
+                    <label class="text-xs text-gray-500 mb-1 block">朝向</label>
+                    <input type="text" name="orientation" value="${props.orientation || ''}" 
+                           class="w-full px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
+                </div>
+                <div class="col-span-1">
+                    <label class="text-xs text-gray-500 mb-1 block">角部屋</label>
+                    <select name="corner_room" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm cursor-pointer">
+                        <option value=""></option>
+                        <option value="true" ${props.corner_room === true ? 'selected' : ''}>是</option>
+                        <option value="false" ${props.corner_room === false ? 'selected' : ''}>否</option>
+                    </select>
+                </div>
+                <div class="col-span-1">
+                    <label class="text-xs text-gray-500 mb-1 block">阳台(m²)</label>
+                    <input type="text" name="balcony_area" value="${props.balcony_area || ''}" 
+                           class="w-full px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
+                </div>
+            `;
+            form.appendChild(buildingRow);
+
+            // Parking on its own row
+            const parkingRow = document.createElement('div');
+            parkingRow.className = 'grid grid-cols-6 gap-2 mb-3';
+            parkingRow.innerHTML = `
+                <div class="col-span-3">
+                    <label class="text-xs text-gray-500 mb-1 block">停车场</label>
+                    <input type="text" name="parking" value="${props.parking || ''}" 
+                           class="w-full px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
+                </div>
+            `;
+            form.appendChild(parkingRow);
+
+            // Cost info section
+            const costHeader = document.createElement('div');
+            costHeader.className = 'text-xs font-medium text-gray-400 uppercase tracking-wide mb-2 mt-4';
+            costHeader.textContent = '费用信息';
+            form.appendChild(costHeader);
+
+            const costRow = document.createElement('div');
+            costRow.className = 'grid grid-cols-2 gap-3 mb-3';
+            costRow.innerHTML = `
+                <div>
+                    <label class="text-xs text-gray-500 mb-1 block">管理费 (円/月)</label>
+                    <input type="text" name="management_fee" value="${props.management_fee || ''}" 
+                           class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500 mb-1 block">修缮费 (円/月)</label>
+                    <input type="text" name="repair_fee" value="${props.repair_fee || ''}" 
+                           class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
+                </div>
+            `;
+            form.appendChild(costRow);
+
+            // Rights section
+            const rightsHeader = document.createElement('div');
+            rightsHeader.className = 'text-xs font-medium text-gray-400 uppercase tracking-wide mb-2 mt-4';
+            rightsHeader.textContent = '权利状态';
+            form.appendChild(rightsHeader);
+
+            const rightsRow = document.createElement('div');
+            rightsRow.className = 'grid grid-cols-2 gap-3 mb-3';
+            rightsRow.innerHTML = `
+                <div>
+                    <label class="text-xs text-gray-500 mb-1 block">土地权利</label>
+                    <input type="text" name="land_rights" value="${props.land_rights || ''}" 
+                           class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500 mb-1 block">现状</label>
+                    <input type="text" name="current_status" value="${props.current_status || ''}" 
+                           class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500 mb-1 block">交房日期</label>
+                    <input type="text" name="handover_date" value="${props.handover_date || ''}" 
+                           class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500 mb-1 block">宠物政策</label>
+                    <input type="text" name="pet_policy" value="${props.pet_policy || ''}" 
+                           class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
+                </div>
+            `;
+            form.appendChild(rightsRow);
 
             // Stations section
-            const stationsLabel = document.createElement('label');
-            stationsLabel.className = 'text-xs text-gray-500 mb-1 block';
-            stationsLabel.textContent = '附近车站 (最多3个)';
-            form.appendChild(stationsLabel);
-
-            const stationsDiv = document.createElement('div');
-            stationsDiv.className = 'space-y-2 mb-2';
-            stationsDiv.id = 'stationsContainer';
+            const stationsHeader = document.createElement('div');
+            stationsHeader.className = 'text-xs font-medium text-gray-400 uppercase tracking-wide mb-2 mt-4';
+            stationsHeader.textContent = '最近车站';
+            form.appendChild(stationsHeader);
 
             const stations = props.stations && Array.isArray(props.stations) ? props.stations : [];
+            const stationsDiv = document.createElement('div');
+            stationsDiv.className = 'space-y-2';
+
             for (let i = 0; i < 3; i++) {
                 const station = stations[i] || { name: '', line: '', walking_minutes: '' };
                 const row = document.createElement('div');
@@ -1395,16 +1489,16 @@
                 row.dataset.index = i;
                 row.innerHTML = `
                     <div class="col-span-4">
-                        <input type="text" name="station_${i}_name" value="${station.name}" placeholder="车站名称"
-                               class="w-full px-2 py-1.5 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white text-sm">
+                        <input type="text" name="station_${i}_name" value="${station.name}" 
+                               class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
                     </div>
-                    <div class="col-span-4">
-                        <input type="text" name="station_${i}_line" value="${station.line}" placeholder="线路"
-                               class="w-full px-2 py-1.5 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white text-sm">
+                    <div class="col-span-6">
+                        <input type="text" name="station_${i}_line" value="${station.line}" 
+                               class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
                     </div>
-                    <div class="col-span-3">
-                        <input type="text" name="station_${i}_walking" value="${station.walking_minutes}" placeholder="徒步(分钟)"
-                               class="w-full px-2 py-1.5 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white text-sm">
+                    <div class="col-span-2">
+                        <input type="text" name="station_${i}_walking" value="${station.walking_minutes}" 
+                               class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm">
                     </div>
                 `;
                 stationsDiv.appendChild(row);
@@ -1437,7 +1531,16 @@
 
         function closeModal() {
             document.getElementById('detailModal').classList.add('hidden');
+            document.getElementById('ocrTextWrapper').classList.add('hidden');
+            document.getElementById('toggleOcrIcon').classList.remove('rotate-180');
             currentDocId = null;
+        }
+
+        function toggleOcrText() {
+            const wrapper = document.getElementById('ocrTextWrapper');
+            const icon = document.getElementById('toggleOcrIcon');
+            wrapper.classList.toggle('hidden');
+            icon.classList.toggle('rotate-180');
         }
 
         async function deleteDocument() {
