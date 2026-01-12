@@ -94,21 +94,40 @@ class DocumentProcessor:
                 pending_docs = self.db.get_pending_documents()
                 if pending_docs:
                     print(f"发现 {len(pending_docs)} 个待处理文档")
+
                 for doc in pending_docs:
+                    doc_id = doc["id"]
+                    filename = doc["filename"]
+                    print(f"[ID:{doc_id}] 开始处理: {filename}")
+
                     try:
-                        await self.process_document(doc["id"])
+                        await self.process_document(doc_id)
+                        print(f"[ID:{doc_id}] 处理完成")
                     except Exception as e:
-                        print(f"处理文档 {doc['id']} 时出错: {str(e)}")
+                        print(f"[ID:{doc_id}] 处理失败: {str(e)}")
                         import traceback
 
                         traceback.print_exc()
+
+                        self.db.increment_retry(doc_id)
+
+                        current_doc = self.db.get_document(doc_id)
+                        if current_doc:
+                            if current_doc["ocr_status"] == "processing":
+                                self.db.update_ocr_status(doc_id, "pending")
+                            elif current_doc["llm_status"] == "processing":
+                                self.db.update_llm_status(doc_id, "pending")
+
+                    await asyncio.sleep(0.5)
+
             except Exception as e:
                 print(f"队列处理出错: {str(e)}")
                 import traceback
 
                 traceback.print_exc()
-
-            await asyncio.sleep(1)
+                await asyncio.sleep(1)
+            else:
+                await asyncio.sleep(1)
 
     def close(self):
         self.ocr_client.close()
