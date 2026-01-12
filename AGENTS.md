@@ -1,252 +1,148 @@
-# AGENTS.md - Housing OCR Agent Guidelines
+# AGENTS.md
 
-This document provides guidelines for agentic coding systems working in this repository.
+This file provides guidelines for AI agents working in this repository.
 
----
+## Project Overview
 
-## Build/Lint/Test Commands
+Housing OCR is a Japanese real estate document intelligent parsing system. It extracts structured data (price, area, address, station, room layout, etc.) from PDFs and images.
 
-### Essential Commands
+## Build, Lint, and Test Commands
+
+### Python Backend
 
 ```bash
-# Install/sync dependencies
+# Install Python dependencies
 just sync
 
-# Start the Flask web application
+# Run backend (development with auto-reload on port 8080)
 just run
 
-# Start the vLLM OCR server (required for OCR functionality)
-just server
+# Run linter (ruff)
+uv run ruff check src/
+uv run ruff check src/ --fix  # Auto-fix issues
 
-# Stop all services
-just stop
+# Run tests
+uv run pytest tests/
+uv run pytest tests/ -v  # Verbose output
 
-# Install package in editable mode
-just install
+# Run a single test
+uv run pytest tests/test_file.py::TestClass::test_method
 
-# Clean uploads and processed files
-just clean
+# Run tests matching a pattern
+uv run pytest tests/ -k "test_name_pattern"
 ```
 
-### Running Single Tests
+### Frontend
 
 ```bash
-# Test OCR processing
-python scripts/test_ocr.py
+# Install frontend dependencies (Bun)
+cd frontend && bun install
 
-# Test OpenRouter API connection
-python scripts/test_openrouter.py
+# Run frontend dev server (port 8080)
+cd frontend && bun run dev
 
-# Test vLLM connection
-python scripts/test_vllm_connection.py
+# Build frontend for production
+just build
+cd frontend && bun run build
+
+# Type check frontend
+cd frontend && npx vue-tsc --noEmit
 ```
 
----
+### Full Development Environment
+
+```bash
+# Start both frontend and backend dev servers
+just dev
+```
 
 ## Code Style Guidelines
 
-### Python Version
-- Python 3.12 (specified in .python-version)
-- Use modern Python features (f-strings, type hints, etc.)
+### Python (Backend)
 
-### Imports
-Order imports in this sequence:
-1. Standard library imports
-2. Third-party imports
-3. Local application imports
+- **Formatting**: Use ruff for formatting and linting. Run `uv run ruff check src/ --fix` before committing.
+- **Type Hints**: Use type hints for all function signatures. Import from `typing` (e.g., `Optional`, `Dict`, `Any`, `List`).
+- **Imports**: Use absolute imports from `src` package (e.g., `from src.models import Database`). Sort imports alphabetically within groups.
+- **Naming**:
+  - Classes: `PascalCase` (e.g., `Database`, `DocumentProcessor`)
+  - Functions/variables: `snake_case` (e.g., `get_document`, `upload_dir`)
+  - Constants: `UPPER_SNAKE_CASE` (e.g., `MAX_SIZE`, `PROJECT_ROOT`)
+  - Private methods: prefix with `_` (e.g., `_init_db`)
+- **Docstrings**: Use triple quotes `"""` for all public functions and classes. Include Args and Returns sections.
+- **Line Length**: Max 120 characters.
+- **Error Handling**:
+  - Use `HTTPException` for API errors with meaningful detail messages
+  - Use try/except blocks for operations that may fail (file I/O, database, image processing)
+  - Log errors with `print(f"Error: {e}")` or let exceptions propagate in background tasks
+- **Database**: Use `sqlite3.Row` for row_factory. Always close connections explicitly. Use parameterized queries (`?` placeholders) to prevent SQL injection.
 
-Example:
-```python
-import os
-import hashlib
-from datetime import datetime
-from pathlib import Path
+### TypeScript/Vue (Frontend)
 
-from flask import Flask, request, jsonify
-from sqlalchemy import Column, Integer, String
+- **Formatting**: Follow Vue 3 + TypeScript conventions. Use Vite's default formatting.
+- **Type Hints**: Define interfaces for props, API responses, and complex objects.
+- **Naming**: `PascalCase` for components, `camelCase` for variables/functions.
+- **Components**: Use Composition API with `<script setup>`.
+- **Styling**: Use TailwindCSS 4 utility classes. Keep components self-contained.
 
-from .database import get_session, Document
-from .ocr import process_document
-```
+### General
 
-### Naming Conventions
+- **Language**: All code, comments, and commit messages in English (or Japanese for user-facing strings per project convention).
+- **Configuration**: Store secrets in `config.toml`, never commit to git.
+- **File Structure**:
+  ```
+  src/
+    ├── app.py          # FastAPI routes
+    ├── models.py       # Database class
+    ├── ocr.py          # OCR client
+    ├── llm.py          # LLM extraction
+    └── processor.py    # Async queue processor
+  frontend/
+    ├── src/            # Vue components
+    ├── dist/           # Built assets
+    └── vite.config.ts
+  ```
 
-**Functions/Variables:** snake_case
-```python
-def process_document(file_path: str) -> str:
-    extracted_text = ...
-```
+## Architecture Notes
 
-**Classes:** PascalCase
-```python
-class QueueManager:
-    def __init__(self, ocr_workers: int = 2):
-        ...
-```
+- **Backend**: FastAPI on Python 3.12+ with SQLite database
+- **OCR**: vLLM serving `rednote-hilab/dots.ocr` model at `http://localhost:8000/v1`
+- **LLM**: OpenRouter API for structured data extraction (configurable models)
+- **Async Processing**: Documents are queued and processed asynchronously by `DocumentProcessor`
+- **Frontend**: Vue 3 SPA served by FastAPI in production, Vite dev server in development
 
-**Constants:** UPPER_CASE
-```python
-VLLM_API_URL = "http://localhost:8000/v1/chat/completions"
-MAX_RETRIES = 3
-```
+## Common Patterns
 
-**Private methods:** prefixed with underscore
-```python
-def _internal_helper(self):
-    ...
-```
-
-### Type Hints
-
-Use type hints selectively for function signatures and complex types:
-```python
-from typing import Optional
-
-def process_image(image_path: str, model: Optional[str] = None) -> str:
-    ...
-```
-
-### Docstrings
-
-Use triple-quoted docstrings (Chinese or English as appropriate):
-```python
-def load_pending_tasks(self):
-    """加载数据库中的待处理任务"""
-    session = get_session()
-    ...
-```
-
-### Error Handling
-
-Database operations must use try-except-rollback pattern:
-```python
-try:
-    session.add(document)
-    session.commit()
-except Exception as e:
-    session.rollback()
-    flash(f"Error: {str(e)}")
-finally:
-    session.close()
-```
-
-Retry logic for external APIs:
-```python
-for attempt in range(MAX_RETRIES):
-    try:
-        response = requests.post(url, json=payload, timeout=VLLM_API_TIMEOUT)
-        response.raise_for_status()
-        return result
-    except requests.exceptions.ConnectionError:
-        if attempt < MAX_RETRIES - 1:
-            time.sleep(RETRY_DELAY)
-            continue
-        else:
-            return f"Connection failed after {MAX_RETRIES} attempts"
-```
-
-### Database Patterns
-
-- Use SQLAlchemy ORM with declarative_base
-- Session management via scoped_session pattern
-- Always close sessions in finally blocks
-- Status fields: "pending", "processing", "completed", "failed"
+### Adding a New API Endpoint
 
 ```python
-from sqlalchemy.orm import scoped_session, sessionmaker
-
-SessionFactory = scoped_session(sessionmaker(bind=engine))
-
-def get_session():
-    return SessionFactory()
+@app.get("/api/newendpoint")
+async def new_endpoint(param: int):
+    """Description of what this endpoint does."""
+    result = db.get_data(param)
+    if not result:
+        raise HTTPException(status_code=404, detail="Not found")
+    return JSONResponse(content={"data": result})
 ```
 
-### File Paths
+### Database Operations
 
-Use pathlib.Path for all file operations:
 ```python
-from pathlib import Path
-
-PROJECT_ROOT = Path(__file__).parent.parent.parent
-UPLOAD_FOLDER = PROJECT_ROOT / "uploads"
-file_path = Path(app.config["UPLOAD_FOLDER"]) / filename
+def get_data(self, doc_id: int) -> Optional[Dict[str, Any]]:
+    conn = self._get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM table WHERE id = ?", (doc_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
 ```
 
-### Logging
+### Background Processing
 
-Use print statements with timestamps for queue operations:
 ```python
-print(f"[{datetime.now().strftime('%H:%M:%S')}] OCR处理: {filename}")
-```
+from src.processor import DocumentProcessor
 
-### Thread Safety
-
-Queue manager uses threading for background workers:
-- Daemon threads for workers
-- stop_event for graceful shutdown
-- current_processing set to prevent duplicate processing
-
-### API Routes
-
-Flask routes follow RESTful patterns:
-```python
-@app.route("/api/properties", methods=["GET"])
-def api_properties():
-    ...
-
-@app.route("/api/update_property/<int:doc_id>", methods=["POST"])
-def api_update_property(doc_id):
-    ...
-```
-
-### Configuration
-
-Load from config.toml using tomli:
-```python
-import tomli
-
-def load_config() -> dict:
-    config_path = PROJECT_ROOT / "config.toml"
-    with open(config_path, "rb") as f:
-        return tomli.load(f)
-```
-
----
-
-## Commit Message Style
-
-Follow conventional commits pattern:
-- `fix:` - Bug fixes
-- `refactor:` - Code refactoring
-- `feat:` - New features
-
-Examples:
-- `fix: 修正app.py中的prefecture拼写错误`
-- `refactor: 前端代码清理和优化`
-- `feat: 实现后台任务队列系统`
-
----
-
-## Key Files Structure
-
-```
-src/housing_ocr/
-├── app.py              # Flask application and routes
-├── database.py         # SQLAlchemy models and session management
-├── ocr.py              # OCR processing and LLM extraction
-├── queue_manager.py    # Background task queue management
-├── retry_manager.py    # Retry logic for failed tasks
-└── templates/
-    ├── index.html      # Main UI
-    └── document.html   # Document detail view
-```
-
----
-
-## Linting
-
-The project uses Ruff for linting (.ruff_cache directory present). Run Ruff before committing:
-```bash
-uv run ruff check src/
-uv run ruff format src/
+async def process_queue():
+    while True:
+        # process pending items
+        await asyncio.sleep(1)
 ```

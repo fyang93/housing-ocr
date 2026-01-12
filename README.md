@@ -6,7 +6,7 @@
 
 ```bash
 # 1. 安装依赖
-uv sync
+just sync
 
 # 2. 配置 API Key
 cp config.example.toml config.toml
@@ -74,30 +74,38 @@ db_path = "./data.db"
 - **SQLite** (数据库)
 - **vLLM** (OCR推理)
 - **OpenRouter** (LLM API)
-- **TailwindCSS** (UI)
+- **Vue 3 + TypeScript + Vite** (前端)
+- **TailwindCSS 4** (UI样式)
+- **Bun** (前端包管理)
 
 ## 项目结构
 
 ```
 housing-ocr/
-├── app.py              # FastAPI 应用和路由
-├── models.py           # 数据库模型
-├── ocr.py              # OCR 客户端
-├── llm.py              # LLM 提取逻辑
-├── processor.py        # 后台处理队列
-├── config.example.toml  # 配置示例
-├── templates/
-│   └── index.html      # 主页面
-└── static/
-    └── style.css       # 样式文件
+├── src/
+│   ├── app.py              # FastAPI 应用和路由
+│   ├── models.py           # 数据库模型
+│   ├── ocr.py              # OCR 客户端
+│   ├── llm.py              # LLM 提取逻辑
+│   └── processor.py        # 后台处理队列
+├── frontend/               # Vue 3 前端项目
+│   ├── src/                # 前端源代码
+│   ├── dist/               # 构建产物
+│   ├── package.json
+│   └── vite.config.ts
+├── config.example.toml     # 配置示例
+├── justfile                # 命令行任务
+└── pyproject.toml
 ```
 
 ## 命令
 
 ```bash
-just sync    # 安装依赖
+just sync    # 安装 Python 依赖
+just build   # 构建前端
 just ocr     # 启动 OCR 服务
-just run     # 启动 Web 应用
+just run     # 启动 Web 服务
+just dev     # 同时启动前后端开发服务器
 just clean   # 清理数据
 ```
 
