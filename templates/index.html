@@ -294,7 +294,7 @@
                 <div class="p-6">
                     <div class="mb-6">
                         <h3 class="font-semibold text-gray-900 mb-4">文档预览</h3>
-                        <div id="previewContainer" class="border border-gray-200 rounded-xl bg-gray-50 min-h-[500px] flex items-center justify-center overflow-hidden cursor-pointer hover:border-blue-300 transition-colors" onclick="openImageViewer()" title="点击查看大图">
+                        <div id="previewContainer" class="border border-gray-200 rounded-xl bg-gray-50 overflow-hidden cursor-pointer hover:border-blue-300 transition-colors relative" onclick="openImageViewer()" title="点击查看大图">
                         </div>
                     </div>
 
@@ -1062,9 +1062,9 @@
 
             previewContainer.innerHTML = `
                 <img src="/api/preview/${doc.id}" alt="文档预览"
-                     class="max-w-full max-h-[380px] object-contain"
+                     class="w-full h-full object-contain"
                      onerror="this.style.display='none'; this.parentElement.innerHTML='<p class=\\'text-gray-500\\'>预览不可用</p>'">
-                <div class="absolute inset-0 flex items-center justify-center bg-black/0 hover:bg-black/5 transition-all rounded-xl">
+                <div class="absolute inset-0 flex items-center justify-center bg-black/0 hover:bg-black/5 transition-all">
                     <div class="w-12 h-12 rounded-full bg-white/90 shadow-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                         <i data-lucide="maximize-2" class="w-6 h-6 text-gray-700"></i>
                     </div>
