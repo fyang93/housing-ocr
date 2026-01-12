@@ -49,27 +49,77 @@
         }
 
         #imageViewerModal {
-            animation: fadeInScale 0.25s ease-out;
+            animation: viewerFadeIn 0.3s ease-out forwards;
         }
 
-        @keyframes fadeInScale {
+        @keyframes viewerFadeIn {
             from {
                 opacity: 0;
-                transform: scale(0.95);
             }
             to {
                 opacity: 1;
-                transform: scale(1);
             }
         }
 
-        .animation-origin-center {
-            transform-origin: center center;
+        #imageViewerModal.closing {
+            animation: viewerFadeOut 0.2s ease-in forwards;
+        }
+
+        @keyframes viewerFadeOut {
+            from {
+                opacity: 1;
+            }
+            to {
+                opacity: 0;
+            }
+        }
+
+        #imageViewerModal .viewer-content {
+            animation: contentScaleIn 0.3s ease-out 0.05s forwards;
+            opacity: 0;
+            transform: scale(0.95) translateY(10px);
+        }
+
+        @keyframes contentScaleIn {
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
         }
 
         .viewer-toolbar {
             backdrop-filter: blur(8px);
             background: rgba(0, 0, 0, 0.7);
+        }
+
+        #previewContainer {
+            transition: border-color 0.2s ease;
+        }
+
+        #previewContainer:hover {
+            border-color: rgb(59 130 246 / 0.5);
+        }
+
+        #previewContainer:hover::after {
+            opacity: 1;
+        }
+
+        #previewContainer::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(59, 130, 246, 0.05);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            pointer-events: none;
+        }
+
+        #previewImage {
+            transition: transform 0.2s ease;
+        }
+
+        #previewContainer:hover #previewImage {
+            transform: scale(1.02);
         }
     </style>
 </head>
@@ -313,7 +363,11 @@
                 <div class="p-6">
                     <div class="mb-6">
                         <h3 class="font-semibold text-gray-900 mb-4">文档预览</h3>
-                        <div id="previewContainer" class="h-[400px] border border-gray-200 rounded-xl bg-gray-50 overflow-hidden cursor-pointer hover:border-blue-300 transition-colors relative" onclick="openImageViewer()" title="点击查看大图">
+                        <div id="previewContainer" class="border border-gray-200 rounded-xl bg-gray-50 overflow-hidden cursor-pointer relative" onclick="openImageViewer(event)" title="点击查看大图">
+                            <div id="previewLoading" class="absolute inset-0 flex items-center justify-center bg-gray-50">
+                                <div class="w-8 h-8 border-3 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+                            </div>
+                            <img id="previewImage" class="w-full h-auto object-contain max-h-[60vh] mx-auto" style="display: none;" alt="文档预览" onload="onPreviewLoaded()" onerror="this.style.display='none'; this.parentElement.innerHTML='<p class=\\'text-gray-500 p-4\\'>预览不可用</p>'">
                         </div>
                     </div>
 
@@ -390,7 +444,7 @@
     </div>
 
     <div id="imageViewerModal" class="fixed inset-0 bg-black/90 hidden z-[60] overflow-hidden">
-        <div class="h-full w-full flex flex-col animation-origin-center">
+        <div class="h-full w-full flex flex-col viewer-content">
             <div class="flex-shrink-0 flex justify-between items-center px-4 py-3 bg-black/50 border-b border-white/10">
                 <h3 id="viewerTitle" class="text-white font-medium truncate"></h3>
                 <button onclick="closeImageViewer()" class="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center text-white transition">
@@ -399,7 +453,7 @@
             </div>
 
             <div class="flex-1 relative overflow-hidden image-viewer-container" id="imageViewerContainer">
-                <img id="viewerImage" class="image-viewer-image absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 max-w-none" alt="文档预览">
+                <img id="viewerImage" class="image-viewer-image" alt="文档预览">
                 <div id="viewerLoading" class="absolute inset-0 flex items-center justify-center">
                     <div class="text-white text-center">
                         <div class="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-3"></div>
@@ -1165,17 +1219,11 @@
             const props = doc.properties || {};
             title.textContent = props.property_name || doc.filename;
 
-            previewContainer.innerHTML = `
-                <img src="/api/preview/${doc.id}" alt="文档预览"
-                     class="w-full h-full object-contain"
-                     onerror="this.style.display='none'; this.parentElement.innerHTML='<p class=\\'text-gray-500 p-4\\'>预览不可用</p>'">
-                <div class="absolute inset-0 flex items-center justify-center bg-black/0 hover:bg-black/5 transition-all pointer-events-none">
-                    <div class="w-12 h-12 rounded-full bg-white/90 shadow-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto">
-                        <i data-lucide="maximize-2" class="w-6 h-6 text-gray-700"></i>
-                    </div>
-                </div>
-            `;
-            previewContainer.classList.add('group', 'relative');
+            const previewImage = document.getElementById('previewImage');
+            const previewLoading = document.getElementById('previewLoading');
+            previewImage.style.display = 'none';
+            previewLoading.style.display = 'flex';
+            previewImage.src = `/api/preview/${doc.id}`;
 
             ocrTextContainer.textContent = doc.ocr_text || '暂无OCR文本';
 
@@ -1290,6 +1338,13 @@
 
             modal.classList.remove('hidden');
             lucide.createIcons();
+        }
+
+        function onPreviewLoaded() {
+            const previewImage = document.getElementById('previewImage');
+            const previewLoading = document.getElementById('previewLoading');
+            previewImage.style.display = 'block';
+            previewLoading.style.display = 'none';
         }
 
         function closeModal() {
@@ -1550,7 +1605,7 @@
         let viewerImage = null;
         let viewerContainer = null;
 
-        function openImageViewer() {
+        function openImageViewer(event) {
             if (!currentDocId) return;
 
             const modal = document.getElementById('imageViewerModal');
@@ -1565,6 +1620,7 @@
             title.textContent = doc?.filename || '文档预览';
 
             modal.classList.remove('hidden');
+            modal.classList.remove('closing');
             loading.classList.remove('hidden');
             image.style.display = 'none';
 
@@ -1581,8 +1637,13 @@
         }
 
         function closeImageViewer() {
-            document.getElementById('imageViewerModal').classList.add('hidden');
-            resetViewerState();
+            const modal = document.getElementById('imageViewerModal');
+            modal.classList.add('closing');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.classList.remove('closing');
+                resetViewerState();
+            }, 200);
         }
 
         function resetViewerState() {
@@ -1622,16 +1683,34 @@
 
         function fitToScreen() {
             if (!viewerImage || !viewerContainer) return;
-            const containerWidth = viewerContainer.clientWidth - 40;
-            const containerHeight = viewerContainer.clientHeight - 40;
-            const imgRect = viewerImage.getBoundingClientRect();
 
-            const scaleX = containerWidth / imgRect.width;
-            const scaleY = containerHeight / imgRect.height;
-            viewerScale = Math.min(scaleX, scaleY, 1);
+            const containerWidth = viewerContainer.clientWidth - 80;
+            const containerHeight = viewerContainer.clientHeight - 100;
+
+            const imgRatio = viewerImage.naturalWidth / viewerImage.naturalHeight;
+            const containerRatio = containerWidth / containerHeight;
+
+            let targetWidth, targetHeight;
+
+            if (imgRatio > containerRatio) {
+                targetWidth = Math.min(containerWidth, viewerImage.naturalWidth);
+                targetHeight = targetWidth / imgRatio;
+            } else {
+                targetHeight = Math.min(containerHeight, viewerImage.naturalHeight);
+                targetWidth = targetHeight * imgRatio;
+            }
+
+            viewerImage.style.width = targetWidth + 'px';
+            viewerImage.style.height = targetHeight + 'px';
+            viewerImage.style.position = 'absolute';
+            viewerImage.style.left = '50%';
+            viewerImage.style.top = '50%';
+            viewerImage.style.transform = 'translate(-50%, -50%)';
+
+            viewerScale = targetWidth / viewerImage.naturalWidth;
             viewerTranslateX = 0;
             viewerTranslateY = 0;
-            updateImageTransform();
+        }
         }
 
         function actualSize() {

@@ -99,6 +99,40 @@ async def get_documents():
     return JSONResponse(content={"documents": documents})
 
 
+@app.get("/api/preview-info/{doc_id}")
+async def get_preview_info(doc_id: int):
+    """获取文档预览信息，包括尺寸和方向"""
+    doc = db.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    upload_dir = Path(config["app"]["upload_dir"])
+    file_path = upload_dir / doc["filename"]
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="文件不存在")
+
+    from PIL import Image
+
+    try:
+        if file_path.suffix.lower() == ".pdf":
+            with fitz.open(file_path) as doc_obj:
+                page = doc_obj[0]
+                mat = fitz.Matrix(2.0, 2.0)
+                pm = page.get_pixmap(matrix=mat, alpha=False)
+                width = pm.width
+                height = pm.height
+        else:
+            with Image.open(file_path) as img:
+                width, height = img.size
+
+        orientation = "landscape" if width > height else "portrait"
+
+        return JSONResponse(
+            content={"width": width, "height": height, "orientation": orientation}
+        )
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
 @app.get("/api/documents/{doc_id}")
 async def get_document(doc_id: int):
     doc = db.get_document(doc_id)
