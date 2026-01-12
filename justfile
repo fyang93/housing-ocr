@@ -16,15 +16,11 @@ ocr:
 # 启动后端 API 服务
 # 生产模式：会自动使用已构建的前端静态文件
 run:
-    uv run uvicorn src.app:app --reload --port 8081
+    uv run uvicorn src.app:app --reload --port 8080
 
 # 构建前端为静态文件（部署前使用）
-build-frontend:
+build:
     cd frontend && bun run build
-
-# 启动前端开发服务器（带热重载，开发时使用）
-dev-frontend:
-    cd frontend && bun run dev
 
 # 启动完整开发环境：同时运行前端开发服务器和后端
 dev:
