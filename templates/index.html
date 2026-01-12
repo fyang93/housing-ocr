@@ -548,7 +548,8 @@
             exclusive_area: '专有面积(m²)',
             balcony_area: '阳台面积(m²)',
             parking: '停车场',
-            pet_policy: '宠物政策'
+            pet_policy: '宠物政策',
+            corner_room: '角部屋'
         };
 
         const dropZone = document.getElementById('dropZone');
@@ -1020,6 +1021,7 @@
                             ${props.land_rights ? `<span class="px-2 py-0.5 bg-orange-50 text-orange-600 rounded text-xs">${props.land_rights}</span>` : ''}
                             ${props.build_year ? `<span class="px-2 py-0.5 bg-amber-50 text-amber-600 rounded text-xs">${new Date().getFullYear() - props.build_year}年</span>` : ''}
                             ${props.pet_policy && props.pet_policy.includes('可') ? `<span class="px-2 py-0.5 bg-pink-50 text-pink-600 rounded text-xs"><i data-lucide="paw-print" class="w-3 h-3 mr-0.5 inline"></i>可养宠</span>` : ''}
+                            ${props.corner_room ? `<span class="px-2 py-0.5 bg-violet-50 text-violet-600 rounded text-xs"><i data-lucide="box-select" class="w-3 h-3 mr-0.5 inline"></i>${props.corner_room}</span>` : ''}
                         </div>
 
                         <div class="space-y-2 mb-3">
@@ -1096,7 +1098,7 @@
             const fieldOrder = [
                 'address', 'price', 'property_name', 'room_layout', 'exclusive_area',
                 'build_year', 'structure', 'floor_number', 'total_floors', 'orientation',
-                'management_fee', 'repair_fee', 'balcony_area', 'nearest_station', 'train_line', 'walking_minutes',
+                'corner_room', 'management_fee', 'repair_fee', 'balcony_area', 'nearest_station', 'train_line', 'walking_minutes',
                 'prefecture', 'city', 'land_rights', 'current_status', 'handover_date',
                 'parking', 'pet_policy'
             ];

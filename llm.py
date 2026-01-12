@@ -101,6 +101,7 @@ Fields to extract:
 20. stations: Array of up to 3 nearest stations, each as object with: name (station name), line (train line), walking_minutes (walking time)
 21. parking: Parking availability
 22. pet_policy: Pet policy
+23. corner_room: Whether it's a corner room (角部屋). Set to null if not mentioned
 
 Important:
 - Convert units: 畳→m²(×1.62), 坪→m²(×3.3)
