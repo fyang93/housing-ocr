@@ -72,23 +72,57 @@ class OCRClient:
 
     def _extract_from_image(self, image: Image.Image) -> str:
         img_base64 = self._image_to_base64(image)
-        prompt = """Please output the layout information from the PDF image, including each layout element's bbox, its category, and the corresponding text content within the bbox.
+        prompt = """Extract structured information from this Japanese real estate document.
 
-1. Bbox format: [x1, y1, x2, y2]
+CRITICAL: You MUST identify and extract ALL of the following fields if present:
 
-2. Layout Categories: The possible categories are ['Caption', 'Footnote', 'Formula', 'List-item', 'Page-footer', 'Page-header', 'Title', 'Table', 'Text', 'Picture'].
+1. property_type - 物件種別 (マンション/一戸建て/土地 etc.)
+2. property_name - 物件名称
+3. address - 住所 (including 都道府県, 市区町村, 番地)
+4. prefecture - 都道府県
+5. city - 市区町村
+6. land_rights - 権利形態 (所有権/借地権)
+7. current_status - 現況 (空室/居住中 etc.)
+8. handover_date - 引渡可能時期
+9. build_year - 築年月 (year in Western calendar, e.g., 2001)
+10. structure - 構造 (RC造/ SRC造/ 木造 etc.)
+11. total_floors - 総戸数 or 階数
+12. floor_number - 所在階
+13. room_layout - 間取タイプ (1LDK/2LDK/3LDK etc.)
+14. orientation - 向き (南/北/東/西 etc.)
+15. price - 価格 in 万円
+16. management_fee - 管理費 (月額〇〇円)
+17. repair_fee - 修繕積立金 (月額〇〇円)
+18. exclusive_area - 専有面積 in m²
+19. balcony_area - バルコニー面積 in m²
+20. stations - Array of nearest stations [{name, line, walking_minutes}]
+21. parking - 駐車場
+22. pet_policy - ペット飼育 (可/不可)
+23. corner_room - 角部屋 (角部屋/中住戶)
 
-3. Text Extraction & Formatting Rules:
-    - Picture: For the 'Picture' category, the text field should be omitted.
-    - Table: Format its text as HTML.
-    - All Others (Text, Title, etc.): Format their text as Markdown.
+IMPORTANT NOTES:
+- 権利形態 is usually labeled "所有権" or "借地権"
+- 用途地域 is critical - find "第一種住居地域", "第二種住居地域", "準工業地域", "商業地域", etc.
+- 構造 often includes RC造, SRC造, 木造, 鉄骨造
+- 築年月 may be formatted as "2001年7月" or similar
+- Extract ALL numbers with their units
 
-4. Constraints:
-    - The output text must be the original text from the image, with no translation.
-    - All layout elements must be sorted according to human reading order.
-    - Ensure all text including headers, titles, and small text near the top edge is captured.
+Output Format:
+Extract the information as structured JSON. If a field is not found, set it to null.
 
-5. Final Output: The entire output must be a single JSON object."""
+Example:
+{
+    "property_type": "マンション",
+    "property_name": "〇〇マンション",
+    "address": "東京都渋谷区...",
+    "prefecture": "東京都",
+    "city": "渋谷区",
+    "land_rights": "所有権",
+    "用途地域": "第一種住居地域",
+    "build_year": 2001,
+    "structure": "RC造",
+    ...
+}"""
 
         payload = {
             "model": self.model,
