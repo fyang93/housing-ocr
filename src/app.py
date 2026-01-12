@@ -43,7 +43,9 @@ def update_models_callback(models):
 processor = DocumentProcessor(config, db, update_models_callback)
 
 
-app.mount("/static", StaticFiles(directory=PROJECT_ROOT / "static"), name="static")
+FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
+if FRONTEND_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
 
 
 @app.on_event("startup")
@@ -55,20 +57,44 @@ async def startup_event():
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    template_path = PROJECT_ROOT / "templates" / "index.html"
-    with open(template_path, encoding="utf-8") as f:
-        content = f.read()
-    response = HTMLResponse(content=content)
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    return response
+    frontend_index = FRONTEND_DIST / "index.html"
+    if frontend_index.exists():
+        with open(frontend_index, encoding="utf-8") as f:
+            content = f.read()
+        response = HTMLResponse(content=content)
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
+    raise HTTPException(status_code=404, detail="前端资源未找到，请先运行 'just build'")
 
 
 @app.post("/api/upload")
 async def upload_document(file: UploadFile = File(...)):
+    import hashlib
+
     upload_dir = Path(config["app"]["upload_dir"])
     upload_dir.mkdir(exist_ok=True)
+
+    # 计算文件hash
+    file.file.seek(0)
+    hash_md5 = hashlib.md5()
+    while chunk := file.file.read(8192):
+        hash_md5.update(chunk)
+    file_hash = hash_md5.hexdigest()
+    file.file.seek(0)
+
+    # 检查hash是否已存在
+    existing_doc = db.get_document_by_hash(file_hash)
+    if existing_doc:
+        return JSONResponse(
+            content={
+                "id": existing_doc["id"],
+                "filename": existing_doc["filename"],
+                "duplicate": True,
+                "duplicate_type": "hash",
+            }
+        )
 
     filename = f"{file.filename}"
     file_path = upload_dir / filename
@@ -81,6 +107,7 @@ async def upload_document(file: UploadFile = File(...)):
                     "id": existing_doc["id"],
                     "filename": filename,
                     "duplicate": True,
+                    "duplicate_type": "filename",
                 }
             )
 
@@ -88,6 +115,25 @@ async def upload_document(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, buffer)
 
     doc_id = db.create_document(filename)
+    db.update_file_hash(doc_id, file_hash)
+
+    from PIL import Image
+
+    try:
+        if file_path.suffix.lower() == ".pdf":
+            with fitz.open(file_path) as doc_obj:
+                page = doc_obj[0]
+                mat = fitz.Matrix(2.0, 2.0)
+                pm = page.get_pixmap(matrix=mat, alpha=False)
+                width = pm.width
+                height = pm.height
+        else:
+            with Image.open(file_path) as img:
+                width, height = img.size
+        db.update_image_dimensions(doc_id, width, height)
+    except Exception as e:
+        print(f"Error getting image dimensions: {e}")
+
     return JSONResponse(
         content={"id": doc_id, "filename": filename, "duplicate": False}
     )
@@ -274,7 +320,8 @@ async def cleanup_documents():
 
 
 @app.get("/api/preview/{doc_id}")
-async def preview_document(doc_id: int):
+async def preview_document(doc_id: int, thumbnail: bool = False):
+    """获取文档预览，支持缩略图模式"""
     doc = db.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="文档不存在")
@@ -283,43 +330,77 @@ async def preview_document(doc_id: int):
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="文件不存在")
 
-    MAX_SIZE = 1400
-
-    if file_path.suffix.lower() == ".pdf":
-        from PIL import Image
-
-        with fitz.open(file_path) as doc_obj:
-            page = doc_obj[0]
-            mat = fitz.Matrix(2.0, 2.0)
-            pm = page.get_pixmap(matrix=mat, alpha=False)
-            img = Image.frombytes("RGB", (pm.width, pm.height), pm.samples)
-
-            if img.width > MAX_SIZE or img.height > MAX_SIZE:
-                ratio = min(MAX_SIZE / img.width, MAX_SIZE / img.height)
-                new_width = int(img.width * ratio)
-                new_height = int(img.height * ratio)
-                img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-
-            from io import BytesIO
-
-            img_bytes = BytesIO()
-            img.save(img_bytes, format="PNG", optimize=True)
-            return Response(content=img_bytes.getvalue(), media_type="image/png")
-
     from PIL import Image
+    import io
 
-    img = Image.open(file_path)
-    if img.width > MAX_SIZE or img.height > MAX_SIZE:
-        ratio = min(MAX_SIZE / img.width, MAX_SIZE / img.height)
-        new_width = int(img.width * ratio)
+    if thumbnail:
+        # 生成缩略图 (宽度300px，保持宽高比)
+        max_width = 300
+
+        if file_path.suffix.lower() == ".pdf":
+            with fitz.open(file_path) as doc_obj:
+                page = doc_obj[0]
+                mat = fitz.Matrix(2.0, 2.0)
+                pm = page.get_pixmap(matrix=mat, alpha=False)
+                img_bytes = pm.tobytes("ppm")
+                img = Image.open(io.BytesIO(img_bytes))
+        else:
+            img = Image.open(file_path)
+
+        # 计算缩略图尺寸
+        ratio = max_width / img.width
         new_height = int(img.height * ratio)
-        img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-    from io import BytesIO
+        # 生成缩略图
+        img.thumbnail((max_width, new_height), Image.Resampling.LANCZOS)
 
-    img_bytes = BytesIO()
-    img.save(img_bytes, format="PNG", optimize=True)
-    return Response(content=img_bytes.getvalue(), media_type="image/png")
+        # 转换为JPEG (质量85，平衡质量和速度)
+        buffer = io.BytesIO()
+        img.convert("RGB").save(buffer, format="JPEG", quality=85, optimize=True)
+
+        # 返回缩略图
+        buffer.seek(0)
+        return Response(
+            content=buffer.getvalue(),
+            media_type="image/jpeg",
+            headers={
+                "Cache-Control": "public, max-age=3600",
+                "Content-Disposition": f'inline; filename="thumb_{doc["filename"]}.jpg"',
+            },
+        )
+    else:
+        # 返回原图 (有尺寸限制)
+        MAX_SIZE = 1400
+
+        if file_path.suffix.lower() == ".pdf":
+            with fitz.open(file_path) as doc_obj:
+                page = doc_obj[0]
+                mat = fitz.Matrix(2.0, 2.0)
+                pm = page.get_pixmap(matrix=mat, alpha=False)
+                img = Image.frombytes("RGB", (pm.width, pm.height), pm.samples)
+
+                if img.width > MAX_SIZE or img.height > MAX_SIZE:
+                    ratio = min(MAX_SIZE / img.width, MAX_SIZE / img.height)
+                    new_width = int(img.width * ratio)
+                    new_height = int(img.height * ratio)
+                    img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+            buffer = io.BytesIO()
+            img.save(buffer, format="JPEG", quality=90, optimize=True)
+            buffer.seek(0)
+            return Response(content=buffer.getvalue(), media_type="image/jpeg")
+
+        img = Image.open(file_path)
+        if img.width > MAX_SIZE or img.height > MAX_SIZE:
+            ratio = min(MAX_SIZE / img.width, MAX_SIZE / img.height)
+            new_width = int(img.width * ratio)
+            new_height = int(img.height * ratio)
+            img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+        buffer = io.BytesIO()
+        img.convert("RGB").save(buffer, format="JPEG", quality=90, optimize=True)
+        buffer.seek(0)
+        return Response(content=buffer.getvalue(), media_type="image/jpeg")
 
 
 @app.on_event("shutdown")
@@ -339,8 +420,8 @@ async def add_location(request: dict):
     if not name:
         raise HTTPException(status_code=400, detail="位置名称不能为空")
 
-    location_id = db.add_location(name)
-    return JSONResponse(content={"success": True, "id": location_id})
+    location = db.add_location(name)
+    return JSONResponse(content={"success": True, "location": location})
 
 
 @app.delete("/api/locations/{location_id}")
@@ -366,41 +447,25 @@ async def reorder_locations(request: dict):
     return JSONResponse(content={"success": True})
 
 
-@app.get("/api/station_durations")
-async def get_station_durations():
+@app.get("/api/travel-times")
+async def get_travel_times():
+    import time
+
+    start = time.time()
     durations = db.get_all_station_durations()
-    return JSONResponse(content={"durations": durations})
+    elapsed = time.time() - start
+    print(
+        f"get_travel_times completed in {elapsed:.3f}s, returned {len(durations)} records"
+    )
+    return JSONResponse(content={"travel_times": durations})
 
 
-@app.get("/api/station_durations/{station_name}")
-async def get_station_duration(station_name: str):
-    durations = db.get_station_durations(station_name)
-    return JSONResponse(content={"durations": durations})
-
-
-@app.post("/api/station_durations")
-async def set_station_duration(request: dict):
-    station_name = request.get("station_name", "").strip()
-    location_id = request.get("location_id")
-    duration = request.get("duration")
-
-    if not station_name:
-        raise HTTPException(status_code=400, detail="车站名称不能为空")
-    if location_id is None:
-        raise HTTPException(status_code=400, detail="位置ID不能为空")
-    if duration is None:
-        raise HTTPException(status_code=400, detail="时长不能为空")
-
-    db.set_station_duration(station_name, location_id, duration)
-    return JSONResponse(content={"success": True})
-
-
-@app.post("/api/station_durations/batch")
-async def set_station_durations_batch(request: dict):
-    durations = request.get("durations", [])
+@app.post("/api/travel-times/batch")
+async def set_travel_times_batch(request: dict):
+    durations = request.get("travel_times", [])
 
     if not isinstance(durations, list):
-        raise HTTPException(status_code=400, detail="durations必须是数组")
+        raise HTTPException(status_code=400, detail="travel_times必须是数组")
 
     for d in durations:
         station_name = d.get("station_name", "").strip()
@@ -411,19 +476,4 @@ async def set_station_durations_batch(request: dict):
             continue
 
         db.set_station_duration(station_name, location_id, duration)
-
-    return JSONResponse(content={"success": True})
-
-
-@app.delete("/api/station_durations")
-async def delete_station_duration(request: dict):
-    station_name = request.get("station_name", "").strip()
-    location_id = request.get("location_id")
-
-    if not station_name:
-        raise HTTPException(status_code=400, detail="车站名称不能为空")
-    if location_id is None:
-        raise HTTPException(status_code=400, detail="位置ID不能为空")
-
-    db.delete_station_duration(station_name, location_id)
     return JSONResponse(content={"success": True})

@@ -27,7 +27,10 @@ class Database:
                 properties TEXT,
                 retry_count INTEGER DEFAULT 0,
                 favorite INTEGER DEFAULT 0,
-                extracted_model TEXT
+                extracted_model TEXT,
+                image_width INTEGER,
+                image_height INTEGER,
+                file_hash TEXT
             )
         """)
         conn.execute("""
@@ -48,12 +51,34 @@ class Database:
                 FOREIGN KEY(location_id) REFERENCES locations(id) ON DELETE CASCADE
             )
         """)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_station_durations_location_id ON station_durations(location_id)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_station_durations_station_name ON station_durations(station_name)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_station_durations_composite ON station_durations(station_name, location_id)"
+        )
+        conn.commit()
         try:
             conn.execute("ALTER TABLE documents ADD COLUMN favorite INTEGER DEFAULT 0")
         except sqlite3.OperationalError:
             pass
         try:
             conn.execute("ALTER TABLE documents ADD COLUMN extracted_model TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE documents ADD COLUMN image_width INTEGER")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE documents ADD COLUMN image_height INTEGER")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE documents ADD COLUMN file_hash TEXT")
         except sqlite3.OperationalError:
             pass
         conn.commit()
@@ -247,6 +272,43 @@ class Database:
         conn.commit()
         conn.close()
 
+    def update_image_dimensions(self, doc_id: int, width: int, height: int):
+        conn = self._get_connection()
+        conn.execute(
+            "UPDATE documents SET image_width = ?, image_height = ? WHERE id = ?",
+            (width, height, doc_id),
+        )
+        conn.commit()
+        conn.close()
+
+    def update_file_hash(self, doc_id: int, file_hash: str):
+        conn = self._get_connection()
+        conn.execute(
+            "UPDATE documents SET file_hash = ? WHERE id = ?",
+            (file_hash, doc_id),
+        )
+        conn.commit()
+        conn.close()
+
+    def get_document_by_hash(self, file_hash: str) -> Optional[Dict[str, Any]]:
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM documents WHERE file_hash = ?", (file_hash,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            doc = dict(row)
+            if doc.get("properties") and doc["properties"].strip():
+                try:
+                    doc["properties"] = json.loads(doc["properties"])
+                except (json.JSONDecodeError, TypeError):
+                    doc["properties"] = {}
+            else:
+                doc["properties"] = {}
+            doc["station_durations"] = self.get_doc_station_durations(doc["id"])
+            return doc
+        return None
+
     def get_all_locations(self) -> list:
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -255,7 +317,7 @@ class Database:
         conn.close()
         return [dict(row) for row in rows]
 
-    def add_location(self, name: str) -> int:
+    def add_location(self, name: str) -> Dict[str, Any]:
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute(
@@ -264,8 +326,14 @@ class Database:
         )
         location_id = cursor.lastrowid
         conn.commit()
+        cursor.execute("SELECT * FROM locations WHERE id = ?", (location_id,))
+        row = cursor.fetchone()
         conn.close()
-        return location_id
+        return (
+            dict(row)
+            if row
+            else {"id": location_id, "name": name, "display_order": 1, "show_in_tag": 0}
+        )
 
     def delete_location(self, location_id: int):
         conn = self._get_connection()
@@ -295,7 +363,7 @@ class Database:
         conn.commit()
         conn.close()
 
-    def get_station_durations(self, station_name: str) -> list:
+    def get_travel_times_for_station(self, station_name: str) -> list:
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute(
@@ -312,7 +380,7 @@ class Database:
         conn.close()
         return [dict(row) for row in rows]
 
-    def get_all_station_durations(self) -> list:
+    def get_all_travel_times(self) -> list:
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute("""
@@ -324,6 +392,12 @@ class Database:
         rows = cursor.fetchall()
         conn.close()
         return [dict(row) for row in rows]
+
+    def get_station_durations(self, station_name: str) -> list:
+        return self.get_travel_times_for_station(station_name)
+
+    def get_all_station_durations(self) -> list:
+        return self.get_all_travel_times()
 
     def set_station_duration(self, station_name: str, location_id: int, duration: int):
         conn = self._get_connection()

@@ -2,36 +2,33 @@
 default:
     @just --list
 
-# 同步项目依赖
+# 同步 Python 依赖
 sync:
     uv sync
 
-# 创建配置文件
-setup:
-    @test -f config.toml || cp config.example.toml config.toml
-    @mkdir -p uploads
-    @mkdir -p static templates
-    @echo "✓ 配置完成,请编辑 config.toml 设置API key"
-
-# 启动OCR服务
+# 启动 vLLM OCR 模型服务（需要 GPU）
 ocr:
     uv run vllm serve rednote-hilab/dots.ocr \
         --trust-remote-code \
         --async-scheduling \
         --gpu-memory-utilization 0.95
 
-# 启动Web应用
+# 启动后端 API 服务
+# 生产模式：会自动使用已构建的前端静态文件
 run:
-    uv run uvicorn src.app:app --reload --port 8080
+    uv run uvicorn src.app:app --reload --port 8081
 
-# 清理数据和临时文件
-clean:
-    rm -rf uploads/* data.db __pycache__
+# 构建前端为静态文件（部署前使用）
+build-frontend:
+    cd frontend && bun run build
 
-# Lint检查
-lint:
-    uv run ruff check src/
+# 启动前端开发服务器（带热重载，开发时使用）
+dev-frontend:
+    cd frontend && bun run dev
 
-# Format代码
-fmt:
-    uv run ruff format src/
+# 启动完整开发环境：同时运行前端开发服务器和后端
+dev:
+    @echo "启动后端服务 (http://localhost:8081)..."
+    @uv run uvicorn src.app:app --reload --port 8081 &
+    @echo "启动前端开发服务器 (http://localhost:8080)..."
+    @cd frontend && bun run dev
