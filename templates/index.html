@@ -570,6 +570,10 @@
             favorite: false
         };
 
+        const ITEMS_PER_PAGE = 12;
+        let currentPage = 1;
+        let filteredDocuments = [];
+
         document.getElementById('searchInput').addEventListener('input', (e) => {
             filters.search = e.target.value.toLowerCase();
             applyFilters();
@@ -921,7 +925,7 @@
             const container = document.getElementById('documentsList');
             container.innerHTML = '';
 
-            const filtered = documents.filter(doc => {
+            filteredDocuments = documents.filter(doc => {
                 const props = doc.properties || {};
 
                 const matchSearch = !filters.search ||
@@ -948,26 +952,41 @@
                 return matchSearch && matchPrice && matchArea && matchWalking && matchType && matchRoom && matchPet && matchFavorite;
             });
 
-            const sorted = filtered.sort((a, b) => {
+            const sorted = filteredDocuments.sort((a, b) => {
                 if (b.favorite !== a.favorite) return b.favorite - a.favorite;
                 const statusA = getDocStatus(a);
                 const statusB = getDocStatus(b);
                 return statusA.priority - statusB.priority;
             });
 
-            sorted.forEach(doc => {
+            const totalDocs = documents.length;
+            const filteredDocs = filteredDocuments.length;
+            document.getElementById('resultCount').textContent = `共 ${totalDocs} 个房产`;
+
+            const filteredInfo = document.getElementById('filteredCount');
+            if (filteredDocs < totalDocs) {
+                filteredInfo.textContent = `显示 ${filteredDocs} 个结果`;
+                filteredInfo.classList.remove('hidden');
+            } else {
+                filteredInfo.classList.add('hidden');
+            }
+
+            const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE);
+            if (currentPage > totalPages) currentPage = 1;
+
+            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+            const endIndex = startIndex + ITEMS_PER_PAGE;
+            const pageDocs = sorted.slice(startIndex, endIndex);
+
+            pageDocs.forEach(doc => {
                 const props = doc.properties || {};
                 const status = getDocStatus(doc);
                 const hasAddress = props.address && props.address.trim() !== '';
                 const hasPrice = props.price && props.price !== null && props.price !== '';
-                
+
                 const addressHtml = hasAddress
                     ? `<span class="text-gray-600">${props.address}</span>`
                     : '<div class="animate-pulse bg-gray-200 rounded h-3 w-full"></div>';
-                
-                const priceHtml = hasPrice
-                    ? `<span class="font-bold text-gray-900">${props.price}</span><span class="text-gray-500 text-sm ml-1">万円</span>`
-                    : '<div class="animate-pulse bg-gray-200 rounded h-6 w-28"></div>';
 
                 const stationDurations = doc.station_durations || [];
                 const locationMap = new Map();
@@ -1055,18 +1074,83 @@
                 `;
                 container.appendChild(card);
             });
+
             lucide.createIcons();
             updateFilterUI();
+            renderPagination(totalPages, sorted.length, startIndex + 1, endIndex);
+        }
 
-            const totalDocs = documents.length;
-            const filteredDocs = filtered.length;
-            document.getElementById('resultCount').textContent = `共 ${totalDocs} 个房产`;
-            const filteredInfo = document.getElementById('filteredCount');
-            if (filteredDocs < totalDocs) {
-                filteredInfo.textContent = `显示 ${filteredDocs} 个结果`;
-                filteredInfo.classList.remove('hidden');
-            } else {
-                filteredInfo.classList.add('hidden');
+        function renderPagination(totalPages, totalItems, startItem, endItem) {
+            let pagination = document.getElementById('pagination');
+            if (!pagination) {
+                pagination = document.createElement('div');
+                pagination.id = 'pagination';
+                pagination.className = 'mt-6 flex items-center justify-center gap-2';
+                document.getElementById('documentsList').parentNode.appendChild(pagination);
+            }
+
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+
+            html += `<span class="px-3 py-1.5 text-sm text-gray-500">${startItem}-${Math.min(endItem, totalItems)} / ${totalItems}</span>`;
+
+            html += `<button onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} class="w-9 h-9 rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition">`;
+            html += `<i data-lucide="chevron-left" class="w-4 h-4"></i>`;
+            html += `</button>`;
+
+            const pageNumbers = getPageNumbers(currentPage, totalPages);
+            pageNumbers.forEach(page => {
+                if (page === '...') {
+                    html += `<span class="px-2 text-gray-400">...</span>`;
+                } else {
+                    const isActive = page === currentPage;
+                    html += `<button onclick="goToPage(${page})" class="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-medium transition ${isActive ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-100'}">${page}</button>`;
+                }
+            });
+
+            html += `<button onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} class="w-9 h-9 rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition">`;
+            html += `<i data-lucide="chevron-right" class="w-4 h-4"></i>`;
+            html += `</button>`;
+
+            html += `<input type="number" min="1" max="${totalPages}" onkeydown="if(event.key==='Enter'){goToPage(this.value)}" placeholder="页" class="w-14 px-2 py-1.5 text-sm border border-gray-200 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-blue-500">`;
+
+            pagination.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        function getPageNumbers(current, total) {
+            if (total <= 7) {
+                return Array.from({length: total}, (_, i) => i + 1);
+            }
+
+            const pages = [];
+            pages.push(1);
+
+            const leftBound = Math.max(2, current - 2);
+            const rightBound = Math.min(total - 1, current + 2);
+
+            if (leftBound > 2) pages.push('...');
+
+            for (let i = leftBound; i <= rightBound; i++) {
+                pages.push(i);
+            }
+
+            if (rightBound < total - 1) pages.push('...');
+
+            pages.push(total);
+            return pages;
+        }
+
+        function goToPage(page) {
+            page = Math.max(1, Math.min(page, Math.ceil(filteredDocuments.length / ITEMS_PER_PAGE)));
+            if (page !== currentPage) {
+                currentPage = page;
+                renderDocuments();
+                window.scrollTo({top: 0, behavior: 'smooth'});
             }
         }
 
