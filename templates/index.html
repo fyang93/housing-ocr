@@ -121,6 +121,54 @@
         #previewContainer:hover #previewImage {
             transform: scale(1.02);
         }
+
+        .skeleton-shimmer {
+            background: linear-gradient(
+                90deg,
+                #e5e7eb 0%,
+                #f3f4f6 25%,
+                #e5e7eb 50%,
+                #f3f4f6 75%,
+                #e5e7eb 100%
+            );
+            background-size: 200% 100%;
+            animation: shimmer 1.5s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: 200% 0;
+            }
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        .skeleton-pulse {
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 0.8;
+            }
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        .image-fade-in {
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
@@ -363,11 +411,34 @@
                 <div class="p-6">
                     <div class="mb-6">
                         <h3 class="font-semibold text-gray-900 mb-4">文档预览</h3>
-                        <div id="previewContainer" class="border border-gray-200 rounded-xl bg-gray-50 overflow-hidden cursor-pointer relative" onclick="openImageViewer(event)" title="点击查看大图">
-                            <div id="previewLoading" class="absolute inset-0 flex items-center justify-center bg-gray-50">
-                                <div class="w-8 h-8 border-3 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+                        <div id="previewContainer" class="border border-gray-200 rounded-xl bg-gray-50 overflow-hidden cursor-pointer relative min-h-[400px]" onclick="openImageViewer(event)" title="点击查看大图">
+                            <div id="previewLoading" class="absolute inset-0 bg-gray-50 z-10 p-8 flex flex-col items-center justify-center">
+                                <div class="w-full max-w-2xl space-y-4">
+                                    <div class="skeleton-shimmer h-4 w-3/4 rounded-md skeleton-pulse"></div>
+                                    <div class="skeleton-shimmer h-3 w-1/2 rounded-md skeleton-pulse" style="animation-delay: 0.2s"></div>
+                                    <div class="flex gap-4 mt-6">
+                                        <div class="flex-1 space-y-3">
+                                            <div class="skeleton-shimmer h-2 w-full rounded-md skeleton-pulse" style="animation-delay: 0.3s"></div>
+                                            <div class="skeleton-shimmer h-2 w-5/6 rounded-md skeleton-pulse" style="animation-delay: 0.4s"></div>
+                                            <div class="skeleton-shimmer h-2 w-4/5 rounded-md skeleton-pulse" style="animation-delay: 0.5s"></div>
+                                        </div>
+                                        <div class="flex-1 space-y-3">
+                                            <div class="skeleton-shimmer h-2 w-full rounded-md skeleton-pulse" style="animation-delay: 0.35s"></div>
+                                            <div class="skeleton-shimmer h-2 w-3/4 rounded-md skeleton-pulse" style="animation-delay: 0.45s"></div>
+                                            <div class="skeleton-shimmer h-2 w-5/6 rounded-md skeleton-pulse" style="animation-delay: 0.55s"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-6 grid grid-cols-2 gap-4">
+                                        <div class="skeleton-shimmer h-32 rounded-lg skeleton-pulse" style="animation-delay: 0.6s"></div>
+                                        <div class="skeleton-shimmer h-32 rounded-lg skeleton-pulse" style="animation-delay: 0.7s"></div>
+                                    </div>
+                                    <div class="space-y-2 mt-4">
+                                        <div class="skeleton-shimmer h-2 w-full rounded-md skeleton-pulse" style="animation-delay: 0.8s"></div>
+                                        <div class="skeleton-shimmer h-2 w-2/3 rounded-md skeleton-pulse" style="animation-delay: 0.9s"></div>
+                                    </div>
+                                </div>
                             </div>
-                            <img id="previewImage" class="w-full h-auto object-contain max-h-[60vh] mx-auto" style="display: none;" alt="文档预览" onload="onPreviewLoaded()" onerror="this.style.display='none'; this.parentElement.innerHTML='<p class=\\'text-gray-500 p-4\\'>预览不可用</p>'">
+                            <img id="previewImage" class="w-full h-auto object-contain max-h-[60vh] mx-auto hidden" alt="文档预览" onload="onPreviewLoaded()" onerror="this.style.display='none'; this.parentElement.innerHTML='<p class=\\'text-gray-500 p-4\\'>预览不可用</p>'">
                         </div>
                     </div>
 
@@ -1221,8 +1292,11 @@
 
             const previewImage = document.getElementById('previewImage');
             const previewLoading = document.getElementById('previewLoading');
-            previewImage.style.display = 'none';
+            
+            previewImage.classList.add('hidden');
+            previewImage.classList.remove('image-fade-in');
             previewLoading.style.display = 'flex';
+            previewContainer.style.minHeight = '400px';
             previewImage.src = `/api/preview/${doc.id}`;
 
             ocrTextContainer.textContent = doc.ocr_text || '暂无OCR文本';
@@ -1343,7 +1417,20 @@
         function onPreviewLoaded() {
             const previewImage = document.getElementById('previewImage');
             const previewLoading = document.getElementById('previewLoading');
-            previewImage.style.display = 'block';
+            const previewContainer = document.getElementById('previewContainer');
+            
+            const naturalHeight = previewImage.naturalHeight;
+            const naturalWidth = previewImage.naturalWidth;
+            const containerMaxHeight = window.innerHeight * 0.6;
+            
+            if (naturalWidth > 0) {
+                const scaledHeight = (naturalHeight / naturalWidth) * previewImage.offsetWidth;
+                const finalHeight = Math.min(scaledHeight, containerMaxHeight);
+                previewContainer.style.minHeight = `${finalHeight}px`;
+            }
+            
+            previewImage.classList.remove('hidden');
+            previewImage.classList.add('image-fade-in');
             previewLoading.style.display = 'none';
         }
 
