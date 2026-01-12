@@ -1,8 +1,8 @@
 import asyncio
 from pathlib import Path
-from models import Database
-from ocr import OCRClient
-from llm import LLMExtractor
+from src.models import Database
+from src.ocr import OCRClient
+from src.llm import LLMExtractor
 import tomli_w
 
 

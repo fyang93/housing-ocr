@@ -22,7 +22,7 @@ ocr:
 
 # 启动Web应用
 run:
-    uv run uvicorn app:app --reload --port 8080
+    uv run uvicorn src.app:app --reload --port 8080
 
 # 清理数据和临时文件
 clean:

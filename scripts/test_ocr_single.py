@@ -1,6 +1,6 @@
 import asyncio
-from models import Database
-from processor import DocumentProcessor
+from src.models import Database
+from src.processor import DocumentProcessor
 import tomli
 
 async def test_single_doc():

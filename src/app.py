@@ -7,14 +7,14 @@ import tomli
 import tomli_w
 import shutil
 import fitz
-from models import Database
-from processor import DocumentProcessor
+from src.models import Database
+from src.processor import DocumentProcessor
 
 
 app = FastAPI(title="Housing OCR")
 
 
-PROJECT_ROOT = Path(__file__).parent
+PROJECT_ROOT = Path(__file__).parent.parent
 
 
 def load_config():
