@@ -152,7 +152,7 @@ const editableStations = computed(() => {
       <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl border border-gray-100 modal-content">
         <div class="flex justify-between items-center px-4 py-3 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl z-10">
           <h2 class="text-lg font-bold text-gray-900 truncate max-w-[calc(100%-48px)]">
-            {{ doc?.properties?.property_name || doc?.filename }}
+            {{ doc?.properties?.property_name || doc?.display_filename || doc?.original_filename || doc?.filename }}
           </h2>
           <button
             @click="emit('close')"
@@ -501,7 +501,7 @@ const editableStations = computed(() => {
   <ImageViewer
     v-if="showImageViewer && doc"
     :doc-id="doc.id"
-    :doc-name="doc.filename"
+    :doc-name="doc.display_filename || doc.original_filename || doc.filename"
     @close="showImageViewer = false"
   />
 </template>

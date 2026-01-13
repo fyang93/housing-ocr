@@ -27,6 +27,9 @@ class DocumentProcessor:
             update_config_callback=callback,
         )
 
+    def _get_display_filename(self, doc: dict) -> str:
+        return doc.get("original_filename") or doc.get("filename", "unknown")
+
     async def process_document(self, doc_id: int):
         doc = self.db.get_document(doc_id)
         if not doc:
@@ -41,11 +44,15 @@ class DocumentProcessor:
             )
             if doc["ocr_status"] in ["pending", "processing"]:
                 if doc["ocr_status"] == "pending":
-                    print(f"[ID:{doc_id}] {doc['filename']} 开始OCR处理...")
+                    print(
+                        f"[ID:{doc_id}] {self._get_display_filename(doc)} 开始OCR处理..."
+                    )
                     print(f"[ID:{doc_id}] 文件路径: {image_path}")
                     self.db.update_ocr_status(doc_id, "processing")
                 else:
-                    print(f"[ID:{doc_id}] {doc['filename']} 继续OCR处理...")
+                    print(
+                        f"[ID:{doc_id}] {self._get_display_filename(doc)} 继续OCR处理..."
+                    )
 
                 try:
                     print(f"[ID:{doc_id}] 调用OCR API...")
@@ -82,7 +89,9 @@ class DocumentProcessor:
                     self.db.update_llm_status(doc_id, "pending", None)
                     return
 
-                print(f"[ID:{doc_id}] {current_doc['filename']} 开始LLM提取...")
+                print(
+                    f"[ID:{doc_id}] {self._get_display_filename(current_doc)} 开始LLM提取..."
+                )
                 self.db.update_llm_status(doc_id, "processing")
 
                 properties = await asyncio.to_thread(
@@ -94,10 +103,10 @@ class DocumentProcessor:
 
         except Exception as e:
             current_doc = self.db.get_document(doc_id)
-            filename = (
-                current_doc.get("filename", "unknown") if current_doc else "unknown"
+            display_filename = (
+                self._get_display_filename(current_doc) if current_doc else "unknown"
             )
-            print(f"[ID:{doc_id}] {filename} 处理失败: {str(e)}")
+            print(f"[ID:{doc_id}] {display_filename} 处理失败: {str(e)}")
             import traceback
 
             traceback.print_exc()
@@ -146,7 +155,7 @@ class DocumentProcessor:
 
                 for doc in pending_docs:
                     doc_id = doc["id"]
-                    filename = doc["filename"]
+                    filename = self._get_display_filename(doc)
                     task = asyncio.create_task(process_with_semaphore(doc_id, filename))
                     active_tasks.add(task)
                     task.add_done_callback(active_tasks.discard)

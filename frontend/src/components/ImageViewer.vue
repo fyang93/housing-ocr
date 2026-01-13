@@ -216,6 +216,15 @@ const handleImageLoad = () => {
 };
 
 onMounted(() => {
+  scale.value = 1;
+  rotation.value = 0;
+  fitMode.value = 'long';
+  translateX.value = 0;
+  translateY.value = 0;
+  imageLoaded.value = false;
+  imageLoadAttempted.value = false;
+  naturalWidth.value = 1200;
+  naturalHeight.value = 1600;
   loadImageInfo();
   window.addEventListener('keydown', handleKeyDown);
   window.addEventListener('mouseup', handleMouseUp);
@@ -236,7 +245,7 @@ onUnmounted(() => {
         <h3 class="text-white font-medium truncate px-3 py-1.5 rounded-lg bg-black/40 backdrop-blur-md">{{ docName }}</h3>
         <button
           @click="emit('close')"
-          class="w-8 h-8 rounded-full hover:bg-white/20 flex items-center justify-center text-white transition"
+          class="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md hover:bg-white/20 flex items-center justify-center text-white transition"
         >
           <X class="w-5 h-5" />
         </button>
