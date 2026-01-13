@@ -32,6 +32,7 @@ const emit = defineEmits<{
 const showOcrText = ref(false);
 const saving = ref(false);
 const showImageViewer = ref(false);
+const imageViewerKey = ref(0);
 const retryLoading = ref(false);
 const properties = ref<PropertyDetails>({});
 
@@ -127,6 +128,7 @@ const onDelete = () => {
 };
 
 const openImageViewer = () => {
+  imageViewerKey.value += 1;
   showImageViewer.value = true;
 };
 
@@ -500,6 +502,7 @@ const editableStations = computed(() => {
 
   <ImageViewer
     v-if="showImageViewer && doc"
+    :key="imageViewerKey"
     :doc-id="doc.id"
     :doc-name="doc.display_filename || doc.original_filename || doc.filename"
     @close="showImageViewer = false"

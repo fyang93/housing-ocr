@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { nextTick, ref, onMounted, onUnmounted } from 'vue';
 import {
   X,
   ZoomIn,
@@ -32,30 +32,14 @@ const lastTouchY = ref(0);
 const initialPinchDistance = ref(0);
 const initialScale = ref(1);
 const imageLoaded = ref(false);
+const isInitialFit = ref(true);
 
 const imageUrl = ref(`/api/preview/${props.docId}`);
 const naturalWidth = ref(1200);
 const naturalHeight = ref(1600);
-const imageLoadAttempted = ref(false);
 
 const containerRef = ref<HTMLElement | null>(null);
 const imageRef = ref<HTMLImageElement | null>(null);
-
-const loadImageInfo = async () => {
-  if (imageLoadAttempted.value) return;
-  imageLoadAttempted.value = true;
-  
-  try {
-    const res = await fetch(`/api/preview-info/${props.docId}`);
-    const data = await res.json();
-    if (data.width && data.height) {
-      naturalWidth.value = data.width;
-      naturalHeight.value = data.height;
-    }
-  } catch (e) {
-    console.error('Failed to load image info:', e);
-  }
-};
 
 const fitToScreen = () => {
   if (!containerRef.value || !imageRef.value) return;
@@ -80,6 +64,10 @@ const fitToScreen = () => {
   }
   translateX.value = 0;
   translateY.value = 0;
+
+  if (isInitialFit.value) {
+    isInitialFit.value = false;
+  }
 };
 
 const actualSize = () => {
@@ -210,9 +198,7 @@ const handleImageLoad = () => {
     naturalWidth.value = imageRef.value.naturalWidth;
     naturalHeight.value = imageRef.value.naturalHeight;
   }
-  requestAnimationFrame(() => {
-    fitToScreen();
-  });
+  fitToScreen();
 };
 
 onMounted(() => {
@@ -222,10 +208,22 @@ onMounted(() => {
   translateX.value = 0;
   translateY.value = 0;
   imageLoaded.value = false;
-  imageLoadAttempted.value = false;
+  isInitialFit.value = true;
   naturalWidth.value = 1200;
   naturalHeight.value = 1600;
-  loadImageInfo();
+
+  const checkImageLoaded = () => {
+    if (imageRef.value && imageRef.value.complete) {
+      naturalWidth.value = imageRef.value.naturalWidth;
+      naturalHeight.value = imageRef.value.naturalHeight;
+      imageLoaded.value = true;
+      fitToScreen();
+    }
+  };
+
+  nextTick(() => {
+    checkImageLoaded();
+  });
   window.addEventListener('keydown', handleKeyDown);
   window.addEventListener('mouseup', handleMouseUp);
   window.addEventListener('mousemove', handleMouseMove);
@@ -241,11 +239,11 @@ onUnmounted(() => {
 <template>
   <Teleport to="body">
     <div class="fixed inset-0 bg-black/90 backdrop-blur-md z-[60]">
-      <div class="absolute top-0 left-0 right-0 p-3 flex justify-between items-start z-10">
-        <h3 class="text-white font-medium truncate px-3 py-1.5 rounded-lg bg-black/40 backdrop-blur-md">{{ docName }}</h3>
+      <div class="absolute top-0 left-0 right-0 p-3 flex justify-between items-start gap-2 z-10">
+        <h3 class="text-white font-medium truncate px-3 py-1.5 rounded-lg bg-black/40 backdrop-blur-md flex-1 min-w-0">{{ docName }}</h3>
         <button
           @click="emit('close')"
-          class="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md hover:bg-white/20 flex items-center justify-center text-white transition"
+          class="w-9 h-9 rounded-full bg-black/40 backdrop-blur-md hover:bg-white/20 flex items-center justify-center text-white transition shrink-0"
         >
           <X class="w-5 h-5" />
         </button>
@@ -278,8 +276,11 @@ onUnmounted(() => {
           <img
             ref="imageRef"
             :src="imageUrl"
-            class="max-w-none max-h-none object-contain will-change-transform transition-transform duration-200 ease-out"
-            :class="{ 'cursor-grab': !isDragging && !isMultitouch, 'cursor-grabbing': isDragging && !isMultitouch }"
+            class="max-w-none max-h-none object-contain will-change-transform"
+            :class="[
+              { 'cursor-grab': !isDragging && !isMultitouch, 'cursor-grabbing': isDragging && !isMultitouch },
+              !isInitialFit ? 'transition-transform duration-200 ease-out' : ''
+            ]"
             draggable="false"
             :style="{
               width: `${naturalWidth}px`,
