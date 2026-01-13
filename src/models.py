@@ -14,6 +14,17 @@ class Database:
         conn.row_factory = sqlite3.Row
         return conn
 
+    def _parse_properties(self, doc: dict) -> dict:
+        """Parse JSON properties field from document."""
+        if doc.get("properties") and doc["properties"].strip():
+            try:
+                doc["properties"] = json.loads(doc["properties"])
+            except (json.JSONDecodeError, TypeError):
+                doc["properties"] = {}
+        else:
+            doc["properties"] = {}
+        return doc
+
     def _init_db(self):
         conn = self._get_connection()
         conn.execute("""
@@ -118,14 +129,7 @@ class Database:
         row = cursor.fetchone()
         conn.close()
         if row:
-            doc = dict(row)
-            if doc.get("properties") and doc["properties"].strip():
-                try:
-                    doc["properties"] = json.loads(doc["properties"])
-                except (json.JSONDecodeError, TypeError):
-                    doc["properties"] = {}
-            else:
-                doc["properties"] = {}
+            doc = self._parse_properties(dict(row))
             doc["travel_times"] = self.get_doc_travel_times(doc_id)
             doc["display_filename"] = doc.get("original_filename") or doc["filename"]
             return doc
@@ -138,14 +142,7 @@ class Database:
         row = cursor.fetchone()
         conn.close()
         if row:
-            doc = dict(row)
-            if doc.get("properties") and doc["properties"].strip():
-                try:
-                    doc["properties"] = json.loads(doc["properties"])
-                except (json.JSONDecodeError, TypeError):
-                    doc["properties"] = {}
-            else:
-                doc["properties"] = {}
+            doc = self._parse_properties(dict(row))
             doc["display_filename"] = doc.get("original_filename") or doc["filename"]
             return doc
         return None
@@ -160,14 +157,7 @@ class Database:
         conn.close()
         docs = []
         for row in rows:
-            doc = dict(row)
-            if doc.get("properties") and doc["properties"].strip():
-                try:
-                    doc["properties"] = json.loads(doc["properties"])
-                except (json.JSONDecodeError, TypeError):
-                    doc["properties"] = {}
-            else:
-                doc["properties"] = {}
+            doc = self._parse_properties(dict(row))
             doc["travel_times"] = self.get_doc_travel_times(doc["id"])
             doc["display_filename"] = doc.get("original_filename") or doc["filename"]
             docs.append(doc)
@@ -312,14 +302,7 @@ class Database:
         row = cursor.fetchone()
         conn.close()
         if row:
-            doc = dict(row)
-            if doc.get("properties") and doc["properties"].strip():
-                try:
-                    doc["properties"] = json.loads(doc["properties"])
-                except (json.JSONDecodeError, TypeError):
-                    doc["properties"] = {}
-            else:
-                doc["properties"] = {}
+            doc = self._parse_properties(dict(row))
             doc["travel_times"] = self.get_doc_travel_times(doc["id"])
             return doc
         return None

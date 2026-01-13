@@ -100,21 +100,24 @@ export function useDocuments() {
   });
 
   const getDocStatus = (doc: Document) => {
-    if (doc.ocr_status === 'failed') {
-      return { priority: 4, status: 'OCR失败', statusClass: 'bg-red-500' };
-    } else if (doc.llm_status === 'failed') {
-      return { priority: 4, status: 'LLM失败', statusClass: 'bg-red-500' };
-    } else if (doc.ocr_status === 'pending') {
-      return { priority: 3, status: 'OCR等待中', statusClass: 'bg-gray-400' };
-    } else if (doc.ocr_status === 'processing') {
-      return { priority: 3, status: 'OCR识别中', statusClass: 'bg-amber-500' };
-    } else if (doc.llm_status === 'pending') {
-      return { priority: 3, status: 'LLM等待中', statusClass: 'bg-gray-400' };
-    } else if (doc.llm_status === 'processing') {
-      return { priority: 3, status: 'LLM提取中', statusClass: 'bg-blue-500' };
-    } else if (doc.llm_status === 'done' && doc.ocr_status === 'done') {
-      return { priority: 2, status: '完成', statusClass: 'bg-emerald-500' };
-    }
+    const statusMap: Record<string, { priority: number; status: string; statusClass: string }> = {
+      'ocr_failed': { priority: 4, status: 'OCR失败', statusClass: 'bg-red-500' },
+      'llm_failed': { priority: 4, status: 'LLM失败', statusClass: 'bg-red-500' },
+      'ocr_pending': { priority: 3, status: 'OCR等待中', statusClass: 'bg-gray-400' },
+      'ocr_processing': { priority: 3, status: 'OCR识别中', statusClass: 'bg-amber-500' },
+      'llm_pending': { priority: 3, status: 'LLM等待中', statusClass: 'bg-gray-400' },
+      'llm_processing': { priority: 3, status: 'LLM提取中', statusClass: 'bg-blue-500' },
+      'done': { priority: 2, status: '完成', statusClass: 'bg-emerald-500' },
+    };
+
+    if (doc.ocr_status === 'failed') return statusMap.ocr_failed;
+    if (doc.llm_status === 'failed') return statusMap.llm_failed;
+    if (doc.ocr_status === 'pending') return statusMap.ocr_pending;
+    if (doc.ocr_status === 'processing') return statusMap.ocr_processing;
+    if (doc.llm_status === 'pending') return statusMap.llm_pending;
+    if (doc.llm_status === 'processing') return statusMap.llm_processing;
+    if (doc.llm_status === 'done' && doc.ocr_status === 'done') return statusMap.done;
+
     return { priority: 3, status: '未知状态', statusClass: 'bg-gray-400' };
   };
 

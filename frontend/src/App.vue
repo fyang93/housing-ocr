@@ -179,10 +179,21 @@ const onFavoriteToggle = async (doc: Document) => {
   doc.favorite = originalFavorite === 0 ? 1 : 0;
 
   try {
-    await toggleFavorite(doc.id);
+    const newFavorite = await toggleFavorite(doc.id);
+    // 使用后端返回的真实状态更新
+    doc.favorite = newFavorite;
+    // 强制触发Vue响应式更新
+    const docIndex = documents.value.findIndex(d => d.id === doc.id);
+    if (docIndex !== -1) {
+      documents.value.splice(docIndex, 1, { ...doc });
+    }
   } catch (error) {
     // 请求失败：恢复原来的状态
     doc.favorite = originalFavorite;
+    const docIndex = documents.value.findIndex(d => d.id === doc.id);
+    if (docIndex !== -1) {
+      documents.value.splice(docIndex, 1, { ...doc });
+    }
     console.error('切换收藏状态失败:', error);
     alert('切换收藏状态失败，请重试');
   }
@@ -480,15 +491,15 @@ watch(filters, () => applyFilters(), { deep: true });</script>
                 type="number"
                 placeholder="最低"
                 min="0"
-                class="flex-1 px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
+                class="flex-1 min-w-0 px-2 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
               />
-              <span class="text-gray-400">-</span>
+              <span class="text-gray-400 flex-shrink-0">-</span>
               <input
                 v-model.number="filters.priceMax"
                 type="number"
                 placeholder="最高"
                 min="0"
-                class="flex-1 px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
+                class="flex-1 min-w-0 px-2 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
               />
             </div>
           </div>
@@ -502,16 +513,16 @@ watch(filters, () => applyFilters(), { deep: true });</script>
                 placeholder="最低"
                 min="0"
                 step="1"
-                class="flex-1 px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
+                class="flex-1 min-w-0 px-2 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
               />
-              <span class="text-gray-400">-</span>
+              <span class="text-gray-400 flex-shrink-0">-</span>
               <input
                 v-model.number="filters.areaMax"
                 type="number"
                 placeholder="最高"
                 min="0"
                 step="1"
-                class="flex-1 px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
+                class="flex-1 min-w-0 px-2 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
               />
             </div>
           </div>

@@ -76,7 +76,7 @@ const isLoading = computed(() => {
             :class="[
               doc.favorite === 1
                 ? 'bg-rose-500 text-white shadow-md shadow-rose-300'
-                : 'bg-gray-100 text-gray-400 hover:bg-rose-500 hover:text-white',
+                : 'bg-gray-100 text-gray-400 active:bg-rose-500 active:text-white md:hover:bg-rose-500 md:hover:text-white',
               doc.favorite === 1 ? 'animate-heartbeat' : ''
             ]"
             @click.stop="$emit('toggleFavorite', doc)"

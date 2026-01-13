@@ -45,8 +45,10 @@ const initSortable = () => {
   if (listContainer.value) {
     sortableInstance = new Sortable(listContainer.value, {
       animation: 150,
-      ghostClass: 'bg-blue-50',
+      ghostClass: 'opacity-50',
       handle: '[data-handle]',
+      delay: 100,
+      delayOnTouchOnly: true,
       onEnd: async (evt) => {
         if (evt.oldIndex === evt.newIndex) return;
 

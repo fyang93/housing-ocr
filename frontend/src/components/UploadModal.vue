@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue';
+import { TransitionGroup } from 'vue';
 import { uploadDocument } from '@/api';
 import {
   CloudUpload,

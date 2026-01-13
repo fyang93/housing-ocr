@@ -120,8 +120,10 @@ export async function deleteDocument(docId: number): Promise<void> {
   await fetchWithRetry(`${API_BASE}/documents/${docId}`, { method: 'DELETE' });
 }
 
-export async function toggleFavorite(docId: number): Promise<void> {
-  await fetchWithRetry(`${API_BASE}/documents/${docId}/favorite`, { method: 'POST' });
+export async function toggleFavorite(docId: number): Promise<number> {
+  const res = await fetchWithRetry(`${API_BASE}/documents/${docId}/favorite`, { method: 'POST' });
+  const data = await res.json();
+  return data.favorite;
 }
 
 export async function retryOCR(docId: number): Promise<void> {

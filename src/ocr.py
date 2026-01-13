@@ -14,7 +14,7 @@ class OCRClient:
         self.pdf_dpi = 200
 
     def _resize_image(self, image: Image.Image) -> Image.Image:
-        """调整图片尺寸，确保不超过最大限制"""
+        """Resize image to ensure it doesn't exceed maximum size."""
         width, height = image.size
         if width <= self.max_image_size and height <= self.max_image_size:
             return image

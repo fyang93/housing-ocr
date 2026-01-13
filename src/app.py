@@ -1,11 +1,15 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, Response
-from fastapi.staticfiles import StaticFiles
+import hashlib
+import shutil
 from pathlib import Path
+
+import fitz
 import tomli
 import tomli_w
-import shutil
-import fitz
+from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
+from PIL import Image
+
 from src.models import Database
 from src.processor import DocumentProcessor
 
@@ -70,7 +74,6 @@ async def root():
 
 @app.post("/api/upload")
 async def upload_document(file: UploadFile = File(...)):
-    import hashlib
 
     upload_dir = Path(config["app"]["upload_dir"])
     upload_dir.mkdir(exist_ok=True)
@@ -144,7 +147,6 @@ async def get_preview_info(doc_id: int):
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="文件不存在")
 
-    from PIL import Image
 
     try:
         if file_path.suffix.lower() == ".pdf":
@@ -318,7 +320,6 @@ async def preview_document(doc_id: int, thumbnail: bool = False):
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="文件不存在")
 
-    from PIL import Image
     import io
 
     if thumbnail:

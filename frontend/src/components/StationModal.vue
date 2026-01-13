@@ -173,7 +173,7 @@ watch(
                   <table class="w-full border-collapse table-fixed">
                     <thead class="sticky top-0 bg-gray-50 z-30">
                       <tr>
-                        <th class="sticky left-0 bg-gray-50 z-40 px-4 py-3 text-left text-sm font-medium text-gray-700 border-b border-gray-200 min-w-[150px] truncate">
+                        <th class="sticky left-0 bg-gray-50 z-40 px-4 py-3 text-left text-sm font-medium text-gray-700 border-b border-gray-200 min-w-[150px] break-words">
                            车站
                          </th>
                         <th
@@ -187,14 +187,14 @@ watch(
                     </thead>
                     <tbody>
                       <tr v-for="station in filteredStations" :key="station">
-                        <td class="sticky left-0 bg-white z-10 px-4 py-3 text-sm text-gray-700 border-b border-gray-200 font-medium truncate min-w-[150px]" :title="station">
+                        <td class="sticky left-0 bg-white z-10 px-4 py-3 text-sm text-gray-700 border-b border-gray-200 font-medium break-words min-w-[150px]">
                            {{ station }}
                          </td>
-                        <td v-for="loc in props.locations" :key="loc.id" class="px-4 py-3 border-b border-gray-200 text-center min-w-[120px]">
+                        <td v-for="loc in props.locations" :key="loc.id" class="px-2 py-3 border-b border-gray-200 text-center min-w-[100px] sm:min-w-[120px]">
                           <input
                             type="number"
                             min="0"
-                            class="w-20 px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
+                            class="w-full max-w-[80px] sm:w-20 px-1.5 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
                             :value="getDuration(station, loc.name)"
                             @input="(e) => setDuration(station, loc.name, (e.target as HTMLInputElement).value)"
                           />
