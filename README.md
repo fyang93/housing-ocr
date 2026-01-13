@@ -102,11 +102,10 @@ housing-ocr/
 
 ```bash
 just sync    # 安装 Python 依赖
-just build   # 构建前端
 just ocr     # 启动 OCR 服务
 just run     # 启动 Web 服务
+just build   # 构建前端
 just dev     # 同时启动前后端开发服务器
-just clean   # 清理数据
 ```
 
 ## License
