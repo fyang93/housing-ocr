@@ -36,26 +36,45 @@ class DocumentProcessor:
         image_path = upload_dir / doc["filename"]
 
         try:
-            if doc["ocr_status"] == "pending":
-                print(f"[ID:{doc_id}] {doc['filename']} 开始OCR处理...")
-                self.db.update_ocr_status(doc_id, "processing")
-
-                ocr_text = await asyncio.to_thread(
-                    self.ocr_client.extract_text, str(image_path), doc_id
-                )
-
-                if not ocr_text or len(ocr_text.strip()) == 0:
-                    print(f"[ID:{doc_id}] OCR返回空文本，保持pending状态待重试")
-                    self.db.update_ocr_status(doc_id, "pending")
+            print(
+                f"[ID:{doc_id}] 当前状态 - OCR: {doc['ocr_status']}, LLM: {doc['llm_status']}"
+            )
+            if doc["ocr_status"] in ["pending", "processing"]:
+                if doc["ocr_status"] == "pending":
+                    print(f"[ID:{doc_id}] {doc['filename']} 开始OCR处理...")
+                    print(f"[ID:{doc_id}] 文件路径: {image_path}")
+                    self.db.update_ocr_status(doc_id, "processing")
                 else:
-                    self.db.update_ocr_status(doc_id, "done", ocr_text)
-                    print(f"[ID:{doc_id}] OCR完成 ({len(ocr_text)} 字符)")
+                    print(f"[ID:{doc_id}] {doc['filename']} 继续OCR处理...")
 
-            if doc["ocr_status"] == "done" and (
-                doc["llm_status"] == "pending" or doc["llm_status"] == "processing"
-            ):
-                doc = self.db.get_document(doc_id)
-                ocr_text = doc.get("ocr_text", "") or ""
+                try:
+                    print(f"[ID:{doc_id}] 调用OCR API...")
+                    ocr_text = await asyncio.to_thread(
+                        self.ocr_client.extract_text, str(image_path), doc_id
+                    )
+                    print(f"[ID:{doc_id}] OCR API调用完成")
+
+                    if not ocr_text or len(ocr_text.strip()) == 0:
+                        print(f"[ID:{doc_id}] OCR返回空文本，保持pending状态待重试")
+                        self.db.update_ocr_status(doc_id, "pending")
+                    else:
+                        self.db.update_ocr_status(doc_id, "done", ocr_text)
+                        print(f"[ID:{doc_id}] OCR完成 ({len(ocr_text)} 字符)")
+                except Exception as ocr_error:
+                    print(f"[ID:{doc_id}] OCR调用失败: {str(ocr_error)}")
+                    self.db.update_ocr_status(doc_id, "pending")
+                    raise ocr_error
+
+            if doc["ocr_status"] == "done" and doc["llm_status"] in [
+                "pending",
+                "failed",
+            ]:
+                current_doc = self.db.get_document(doc_id)
+                if not current_doc:
+                    print(f"[ID:{doc_id}] 文档不存在，跳过")
+                    return
+
+                ocr_text = current_doc.get("ocr_text", "") or ""
 
                 if not ocr_text or len(ocr_text.strip()) == 0:
                     print(f"[ID:{doc_id}] OCR文本为空，OCR状态重置为pending待重试")
@@ -63,7 +82,7 @@ class DocumentProcessor:
                     self.db.update_llm_status(doc_id, "pending", None)
                     return
 
-                print(f"[ID:{doc_id}] {doc['filename']} 开始LLM提取...")
+                print(f"[ID:{doc_id}] {current_doc['filename']} 开始LLM提取...")
                 self.db.update_llm_status(doc_id, "processing")
 
                 properties = await asyncio.to_thread(
@@ -74,7 +93,11 @@ class DocumentProcessor:
                 print(f"[ID:{doc_id}] LLM提取完成 (模型: {extracted_model})")
 
         except Exception as e:
-            print(f"[ID:{doc_id}] {doc['filename']} 处理失败: {str(e)}")
+            current_doc = self.db.get_document(doc_id)
+            filename = (
+                current_doc.get("filename", "unknown") if current_doc else "unknown"
+            )
+            print(f"[ID:{doc_id}] {filename} 处理失败: {str(e)}")
             import traceback
 
             traceback.print_exc()
@@ -89,44 +112,57 @@ class DocumentProcessor:
 
     async def process_queue(self):
         print("后台处理器已启动...")
+        print("开始监听待处理文档...")
+        max_concurrent = 3
+        semaphore = asyncio.Semaphore(max_concurrent)
+        active_tasks = set()
+
+        async def process_with_semaphore(doc_id, filename):
+            async with semaphore:
+                print(f"[ID:{doc_id}] 开始处理: {filename}")
+                try:
+                    await self.process_document(doc_id)
+                    print(f"[ID:{doc_id}] 处理完成")
+                except Exception as e:
+                    print(f"[ID:{doc_id}] 处理失败: {str(e)}")
+                    import traceback
+
+                    traceback.print_exc()
+
+                    self.db.increment_retry(doc_id)
+
+                    current_doc = self.db.get_document(doc_id)
+                    if current_doc:
+                        if current_doc["ocr_status"] == "processing":
+                            self.db.update_ocr_status(doc_id, "pending")
+                        elif current_doc["llm_status"] == "processing":
+                            self.db.update_llm_status(doc_id, "pending")
+
         while True:
             try:
                 pending_docs = self.db.get_pending_documents()
                 if pending_docs:
-                    print(f"发现 {len(pending_docs)} 个待处理文档")
+                    print(f"[PROCESSOR] 发现 {len(pending_docs)} 个待处理文档")
 
                 for doc in pending_docs:
                     doc_id = doc["id"]
                     filename = doc["filename"]
-                    print(f"[ID:{doc_id}] 开始处理: {filename}")
+                    task = asyncio.create_task(process_with_semaphore(doc_id, filename))
+                    active_tasks.add(task)
+                    task.add_done_callback(active_tasks.discard)
 
-                    try:
-                        await self.process_document(doc_id)
-                        print(f"[ID:{doc_id}] 处理完成")
-                    except Exception as e:
-                        print(f"[ID:{doc_id}] 处理失败: {str(e)}")
-                        import traceback
-
-                        traceback.print_exc()
-
-                        self.db.increment_retry(doc_id)
-
-                        current_doc = self.db.get_document(doc_id)
-                        if current_doc:
-                            if current_doc["ocr_status"] == "processing":
-                                self.db.update_ocr_status(doc_id, "pending")
-                            elif current_doc["llm_status"] == "processing":
-                                self.db.update_llm_status(doc_id, "pending")
-
-                    await asyncio.sleep(0.5)
+                if active_tasks:
+                    done, _ = await asyncio.wait(
+                        active_tasks, timeout=1.0 if not pending_docs else None
+                    )
+                elif not pending_docs:
+                    await asyncio.sleep(1)
 
             except Exception as e:
                 print(f"队列处理出错: {str(e)}")
                 import traceback
 
                 traceback.print_exc()
-                await asyncio.sleep(1)
-            else:
                 await asyncio.sleep(1)
 
     def close(self):

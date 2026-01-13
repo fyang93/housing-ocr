@@ -1,6 +1,6 @@
 import { ref, computed, onMounted } from 'vue';
 import type { Document, FilterState, PropertyDetails } from '@/types';
-import { fetchDocuments, cleanupDocuments } from '@/api';
+import { fetchDocuments, cleanupDocuments, fetchDocument } from '@/api';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -34,6 +34,19 @@ export function useDocuments() {
       error.value = e instanceof Error ? e.message : '加载失败';
     } finally {
       loading.value = false;
+    }
+  };
+
+  const updateDocumentById = async (docId: number) => {
+    try {
+      const doc = await fetchDocument(docId);
+      const index = documents.value.findIndex(d => d.id === docId);
+      if (index !== -1) {
+        documents.value.splice(index, 1, doc);
+        applyFilters();
+      }
+    } catch (e) {
+      console.error('更新文档失败:', e);
     }
   };
 
@@ -75,10 +88,7 @@ export function useDocuments() {
 
   const sortedDocuments = computed(() => {
     return [...filteredDocuments.value].sort((a, b) => {
-      if (b.favorite !== a.favorite) return b.favorite - a.favorite;
-      const statusA = getDocStatus(a);
-      const statusB = getDocStatus(b);
-      return statusA.priority - statusB.priority;
+      return b.favorite - a.favorite;
     });
   });
 
@@ -90,24 +100,22 @@ export function useDocuments() {
   });
 
   const getDocStatus = (doc: Document) => {
-    const props = doc.properties || {};
-    const hasValidProperties = props.address && props.address.trim() !== '' && props.price && props.price !== null;
-    const hasOcrText = doc.ocr_text && doc.ocr_text.trim().length > 0;
-
-    if (doc.llm_status === 'done' && doc.ocr_status === 'done' && hasValidProperties) {
-      return { priority: 2, status: '完成', statusClass: 'bg-emerald-500' };
-    } else if (doc.ocr_status === 'done' && hasOcrText && (doc.llm_status === 'pending' || doc.llm_status === 'processing')) {
-      return { priority: 3, status: '处理中', statusClass: 'bg-blue-500' };
-    } else if (doc.ocr_status === 'processing' || doc.llm_status === 'processing') {
-      return { priority: 3, status: '处理中', statusClass: 'bg-amber-500' };
-    } else if (doc.ocr_status === 'done' && !hasOcrText) {
-      return { priority: 3, status: '处理中', statusClass: 'bg-amber-500' };
+    if (doc.ocr_status === 'failed') {
+      return { priority: 4, status: 'OCR失败', statusClass: 'bg-red-500' };
+    } else if (doc.llm_status === 'failed') {
+      return { priority: 4, status: 'LLM失败', statusClass: 'bg-red-500' };
     } else if (doc.ocr_status === 'pending') {
-      return { priority: 3, status: '处理中', statusClass: 'bg-amber-500' };
-    } else if (doc.ocr_status === 'failed' || doc.llm_status === 'failed') {
-      return { priority: 4, status: '提取失败', statusClass: 'bg-red-500' };
+      return { priority: 3, status: 'OCR等待中', statusClass: 'bg-gray-400' };
+    } else if (doc.ocr_status === 'processing') {
+      return { priority: 3, status: 'OCR识别中', statusClass: 'bg-amber-500' };
+    } else if (doc.llm_status === 'pending') {
+      return { priority: 3, status: 'LLM等待中', statusClass: 'bg-gray-400' };
+    } else if (doc.llm_status === 'processing') {
+      return { priority: 3, status: 'LLM提取中', statusClass: 'bg-blue-500' };
+    } else if (doc.llm_status === 'done' && doc.ocr_status === 'done') {
+      return { priority: 2, status: '完成', statusClass: 'bg-emerald-500' };
     }
-    return { priority: 3, status: '处理中', statusClass: 'bg-amber-500' };
+    return { priority: 3, status: '未知状态', statusClass: 'bg-gray-400' };
   };
 
   const goToPage = (page: number) => {
@@ -144,12 +152,14 @@ export function useDocuments() {
     const newDoc: Document = {
       id: docData.id,
       filename: docData.filename,
+      display_filename: docData.filename,
       upload_time: new Date().toISOString(),
       ocr_status: 'pending',
       llm_status: 'pending',
       favorite: 0,
     };
     documents.value.unshift(newDoc);
+    applyFilters();
   };
 
   const preloadImages = () => {
@@ -179,6 +189,7 @@ export function useDocuments() {
     loading,
     error,
     loadDocuments,
+    updateDocumentById,
     applyFilters,
     goToPage,
     handleCleanup,

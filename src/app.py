@@ -1,8 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
-import urllib.parse
 import tomli
 import tomli_w
 import shutil
@@ -76,7 +75,6 @@ async def upload_document(file: UploadFile = File(...)):
     upload_dir = Path(config["app"]["upload_dir"])
     upload_dir.mkdir(exist_ok=True)
 
-    # 计算文件hash
     file.file.seek(0)
     hash_md5 = hashlib.md5()
     while chunk := file.file.read(8192):
@@ -84,37 +82,27 @@ async def upload_document(file: UploadFile = File(...)):
     file_hash = hash_md5.hexdigest()
     file.file.seek(0)
 
-    # 检查hash是否已存在
     existing_doc = db.get_document_by_hash(file_hash)
     if existing_doc:
         return JSONResponse(
             content={
                 "id": existing_doc["id"],
-                "filename": existing_doc["filename"],
+                "filename": existing_doc["original_filename"]
+                or existing_doc["filename"],
                 "duplicate": True,
                 "duplicate_type": "hash",
             }
         )
 
-    filename = f"{file.filename}"
-    file_path = upload_dir / filename
-
-    if file_path.exists():
-        existing_doc = db.get_document_by_filename(filename)
-        if existing_doc:
-            return JSONResponse(
-                content={
-                    "id": existing_doc["id"],
-                    "filename": filename,
-                    "duplicate": True,
-                    "duplicate_type": "filename",
-                }
-            )
+    file_ext = Path(file.filename).suffix
+    saved_filename = f"{file_hash}{file_ext}"
+    file_path = upload_dir / saved_filename
 
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    doc_id = db.create_document(filename)
+    original_filename = file.filename
+    doc_id = db.create_document(saved_filename, original_filename)
     db.update_file_hash(doc_id, file_hash)
 
     from PIL import Image
@@ -135,7 +123,7 @@ async def upload_document(file: UploadFile = File(...)):
         print(f"Error getting image dimensions: {e}")
 
     return JSONResponse(
-        content={"id": doc_id, "filename": filename, "duplicate": False}
+        content={"id": doc_id, "filename": original_filename, "duplicate": False}
     )
 
 
@@ -452,7 +440,7 @@ async def get_travel_times():
     import time
 
     start = time.time()
-    durations = db.get_all_station_durations()
+    durations = db.get_all_travel_times()
     elapsed = time.time() - start
     print(
         f"get_travel_times completed in {elapsed:.3f}s, returned {len(durations)} records"
@@ -475,5 +463,5 @@ async def set_travel_times_batch(request: dict):
         if not station_name or location_id is None or duration is None:
             continue
 
-        db.set_station_duration(station_name, location_id, duration)
+        db.set_travel_time(station_name, location_id, duration)
     return JSONResponse(content={"success": True})

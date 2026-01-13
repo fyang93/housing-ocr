@@ -3,17 +3,19 @@ import { ref, computed, watch, onMounted } from 'vue';
 import type { Document } from '@/types';
 import { useDocuments } from '@/composables/useDocuments';
 import { useLocations } from '@/composables/useLocations';
-import { fetchPreview, toggleFavorite, deleteDocument, retryOCR, retryLLM } from '@/api';
+import { fetchPreview, toggleFavorite, deleteDocument, retryOCR, retryLLM, fetchDocument } from '@/api';
 import DocumentCard from '@/components/DocumentCard.vue';
 import DocumentCardSkeleton from '@/components/DocumentCardSkeleton.vue';
 import UploadModal from '@/components/UploadModal.vue';
 import LocationModal from '@/components/LocationModal.vue';
 import StationModal from '@/components/StationModal.vue';
+import ModelModal from '@/components/ModelModal.vue';
 import DetailModal from '@/components/DetailModal.vue';
 import {
   Upload,
   Map,
   Train,
+  Settings,
   Trash2,
   Search,
   ChevronLeft,
@@ -27,7 +29,8 @@ import {
   Layout,
   Heart,
   Menu,
-  X as XIcon,
+  X,
+  Home,
 } from 'lucide-vue-next';
 
 const {
@@ -46,6 +49,7 @@ const {
   updateDocumentProperties,
   addDocument,
   preloadImages,
+  updateDocumentById,
 } = useDocuments();
 
 const {
@@ -59,9 +63,11 @@ const previewUrl = ref<string | null>(null);
 const showUploadModal = ref(false);
 const showLocationModal = ref(false);
 const showStationModal = ref(false);
+const showModelModal = ref(false);
 const showFilterPanel = ref(false);
 const showMobileMenu = ref(false);
 const jumpPageInput = ref<number | null>(null);
+const retryLoading = ref(false);
 
 const pageNumbers = computed(() => {
   if (totalPages.value <= 7) {
@@ -168,27 +174,64 @@ const closeDetailModal = () => {
 };
 
 const onFavoriteToggle = async (doc: Document) => {
-  await toggleFavorite(doc.id);
-  await loadDocuments();
+  const originalFavorite = doc.favorite;
+  // 乐观更新：立即切换前端状态
+  doc.favorite = originalFavorite === 0 ? 1 : 0;
+
+  try {
+    await toggleFavorite(doc.id);
+  } catch (error) {
+    // 请求失败：恢复原来的状态
+    doc.favorite = originalFavorite;
+    console.error('切换收藏状态失败:', error);
+    alert('切换收藏状态失败，请重试');
+  }
 };
 
 const onDelete = async (doc: Document) => {
   if (!confirm('确定要删除这个文档吗?')) return;
-  await deleteDocument(doc.id);
-  await loadDocuments();
-};
 
-const openImageViewer = () => {
-  if (currentDoc.value) {
-    psViewer.value?.open(0);
+  // 乐观更新：立即从列表中移除
+  const docIndex = documents.value.findIndex(d => d.id === doc.id);
+  if (docIndex !== -1) {
+    documents.value.splice(docIndex, 1);
+    applyFilters(); // 更新过滤后的文档列表
+  }
+
+  try {
+    await deleteDocument(doc.id);
+  } catch (error) {
+    // 请求失败：恢复文档到列表中
+    if (docIndex !== -1) {
+      documents.value.splice(docIndex, 0, doc);
+      applyFilters(); // 重新应用过滤器
+    }
+    console.error('删除文档失败:', error);
+    alert('删除文档失败，请重试');
   }
 };
 
 const onUploaded = (uploadedDocs: Array<{ id: number; filename: string }>) => {
   uploadedDocs.forEach(doc => {
     addDocument(doc);
+    pollDocumentStatus(doc.id);
   });
   setTimeout(() => preloadImages(), 100);
+};
+
+const pollDocumentStatus = (docId: number) => {
+  let attempts = 0;
+  const maxAttempts = 60;
+  const checkInterval = setInterval(async () => {
+    await updateDocumentById(docId);
+    const doc = documents.value.find(d => d.id === docId);
+    if (doc && doc.ocr_status === 'done' && doc.llm_status === 'done') {
+      clearInterval(checkInterval);
+    } else if (attempts > maxAttempts) {
+      clearInterval(checkInterval);
+    }
+    attempts++;
+  }, 2000);
 };
 
 const onDetailSaved = (updatedProperties: PropertyDetails, docId: number) => {
@@ -196,21 +239,90 @@ const onDetailSaved = (updatedProperties: PropertyDetails, docId: number) => {
 };
 
 const onDetailDelete = async (docId: number) => {
-  await deleteDocument(docId);
-  await loadDocuments();
-  closeDetailModal();
+  // 乐观更新：立即从列表中移除
+  const docIndex = documents.value.findIndex(d => d.id === docId);
+  const doc = docIndex !== -1 ? documents.value[docIndex] : null;
+  if (docIndex !== -1) {
+    documents.value.splice(docIndex, 1);
+    applyFilters(); // 更新过滤后的文档列表
+  }
+
+  try {
+    await deleteDocument(docId);
+    closeDetailModal();
+  } catch (error) {
+    // 请求失败：恢复文档到列表中
+    if (doc && docIndex !== -1) {
+      documents.value.splice(docIndex, 0, doc);
+      applyFilters(); // 重新应用过滤器
+    }
+    console.error('删除文档失败:', error);
+    alert('删除文档失败，请重试');
+  }
 };
 
 const onDetailRetryOCR = async (docId: number) => {
-  await retryOCR(docId);
+  if (retryLoading.value) return;
+  retryLoading.value = true;
+  try {
+    await retryOCR(docId);
+    let attempts = 0;
+    const checkInterval = setInterval(async () => {
+      await updateDocumentById(docId);
+      const doc = documents.value.find(d => d.id === docId);
+      if (currentDoc.value && currentDoc.value.id === docId) {
+        currentDoc.value = doc || null;
+      }
+      if (doc && doc.ocr_status === 'done' && doc.llm_status === 'done') {
+        clearInterval(checkInterval);
+        retryLoading.value = false;
+      } else if (attempts > 30) {
+        clearInterval(checkInterval);
+        retryLoading.value = false;
+      }
+      attempts++;
+    }, 2000);
+  } catch (error) {
+    console.error('重试OCR失败:', error);
+    alert('重试OCR失败: ' + (error as Error).message);
+    retryLoading.value = false;
+  }
 };
 
 const onDetailRetryLLM = async (docId: number) => {
-  await retryLLM(docId);
+  if (retryLoading.value) return;
+  retryLoading.value = true;
+  try {
+    await retryLLM(docId);
+    let attempts = 0;
+    const checkInterval = setInterval(async () => {
+      await updateDocumentById(docId);
+      const doc = documents.value.find(d => d.id === docId);
+      if (currentDoc.value && currentDoc.value.id === docId) {
+        currentDoc.value = doc || null;
+      }
+      if (doc && doc.llm_status === 'done') {
+        clearInterval(checkInterval);
+        retryLoading.value = false;
+      } else if (attempts > 30) {
+        clearInterval(checkInterval);
+        retryLoading.value = false;
+      }
+      attempts++;
+    }, 2000);
+  } catch (error) {
+    console.error('重试LLM失败:', error);
+    alert('重试LLM失败: ' + (error as Error).message);
+    retryLoading.value = false;
+  }
 };
 
-const onLocationUpdated = () => {
-  loadLocations();
+const onLocationModalClose = () => {
+  showLocationModal.value = false;
+};
+
+const onModelModalClose = () => {
+  showModelModal.value = false;
 };
 
 onMounted(() => {
@@ -228,7 +340,7 @@ watch(filters, () => applyFilters(), { deep: true });</script>
 <template>
   <div class="container mx-auto px-4 py-8 max-w-7xl">
     <header class="mb-8">
-      <nav class="flex justify-between items-center gap-4">
+      <nav class="flex justify-between items-center gap-4 relative">
         <div class="flex items-center gap-3">
           <span class="text-3xl">🏠</span>
           <div>
@@ -260,53 +372,70 @@ watch(filters, () => applyFilters(), { deep: true });</script>
             位置管理
           </button>
 
-          <button
-            @click="showStationModal = true"
-            class="hidden lg:flex px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 transition-all font-medium shadow-sm items-center gap-2"
-          >
-            <Train class="w-5 h-5 text-gray-500" />
-            车站时长
-          </button>
+           <button
+             @click="showStationModal = true"
+             class="hidden lg:flex px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 transition-all font-medium shadow-sm items-center gap-2"
+           >
+             <Train class="w-5 h-5 text-gray-500" />
+             车站时长
+           </button>
 
-          <button
-            @click="handleCleanup"
-            class="hidden lg:flex px-4 py-2.5 rounded-xl bg-white border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition-all font-medium shadow-sm items-center gap-2"
-          >
+           <button
+             @click="showModelModal = true"
+             class="hidden lg:flex px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900 transition-all font-medium shadow-sm items-center gap-2"
+           >
+             <Settings class="w-5 h-5 text-gray-500" />
+             模型管理
+           </button>
+
+           <button
+             @click="handleCleanup"
+             class="hidden lg:flex px-4 py-2.5 rounded-xl bg-white border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition-all font-medium shadow-sm items-center gap-2"
+           >
             <Trash2 class="w-5 h-5" />
             清理
           </button>
 
           <button
             @click="showMobileMenu = !showMobileMenu"
-            class="lg:hidden w-12 h-12 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 transition-all shadow-sm flex items-center justify-center"
+            class="lg:hidden w-12 h-12 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 transition-all shadow-sm flex items-center justify-center relative"
           >
             <Menu class="w-6 h-6 text-gray-600" />
           </button>
         </div>
 
-        <div v-if="showMobileMenu" class="lg:hidden mt-4 p-4 bg-white rounded-2xl border border-gray-200 shadow-lg">
-          <div class="flex flex-col gap-2">
-            <button
-              @click="showLocationModal = true; showMobileMenu = false"
-              class="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all font-medium flex items-center gap-3"
-            >
-              <Map class="w-5 h-5 text-gray-500" />
-              位置管理
-            </button>
-            <button
-              @click="showStationModal = true; showMobileMenu = false"
-              class="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all font-medium flex items-center gap-3"
-            >
-              <Train class="w-5 h-5 text-gray-500" />
-              车站时长
-            </button>
-            <button
-              @click="handleCleanup; showMobileMenu = false"
-              class="w-full px-4 py-3 rounded-xl bg-white border border-red-200 text-red-600 hover:bg-red-50 transition-all font-medium flex items-center gap-3"
-            >
-              <Trash2 class="w-5 h-5" />
-              清理
-            </button>
+        <div v-if="showMobileMenu" class="lg:hidden absolute left-auto right-0 top-full mt-2 z-50">
+          <div class="bg-white rounded-2xl border border-gray-200 shadow-xl overflow-hidden px-4">
+            <div class="flex flex-col">
+              <button
+                @click="showLocationModal = true; showMobileMenu = false"
+                class="w-full px-4 py-3.5 border-b border-gray-100 text-gray-700 hover:bg-gray-50 transition-all font-medium flex items-center gap-3"
+              >
+                <Map class="w-5 h-5 text-gray-500" />
+                位置管理
+              </button>
+               <button
+                 @click="showStationModal = true; showMobileMenu = false"
+                 class="w-full px-4 py-3.5 border-b border-gray-100 text-gray-700 hover:bg-gray-50 transition-all font-medium flex items-center gap-3"
+               >
+                 <Train class="w-5 h-5 text-gray-500" />
+                 车站时长
+               </button>
+               <button
+                 @click="showModelModal = true; showMobileMenu = false"
+                 class="w-full px-4 py-3.5 border-b border-gray-100 text-gray-700 hover:bg-gray-50 transition-all font-medium flex items-center gap-3"
+               >
+                 <Settings class="w-5 h-5 text-gray-500" />
+                 模型管理
+               </button>
+               <button
+                 @click="handleCleanup; showMobileMenu = false"
+                 class="w-full px-4 py-3.5 text-red-600 hover:bg-red-50 transition-all font-medium flex items-center gap-3"
+               >
+                <Trash2 class="w-5 h-5" />
+                清理
+              </button>
+            </div>
           </div>
         </div>
       </nav>
@@ -641,15 +770,16 @@ watch(filters, () => applyFilters(), { deep: true });</script>
     </div>
 
     <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-      <DocumentCard
-        v-for="doc in pageDocuments"
-        :key="doc.id"
-        :doc="doc"
-        :get-status="getDocStatus"
-        @open="openDetailModal"
-        @toggle-favorite="onFavoriteToggle"
-        @delete="onDelete"
-      />
+          <DocumentCard
+            v-for="doc in pageDocuments"
+            :key="doc.id"
+            :doc="doc"
+            :locations="locations"
+            :get-status="getDocStatus"
+            @open="openDetailModal"
+            @toggle-favorite="onFavoriteToggle"
+            @delete="onDelete"
+          />
     </div>
 
     <div v-if="totalPages > 1" class="mt-6 flex items-center justify-center gap-2">
@@ -703,20 +833,21 @@ watch(filters, () => applyFilters(), { deep: true });</script>
       @close="closeDetailModal"
       @saved="onDetailSaved"
       @delete="onDetailDelete"
-      @retry-ocr="onDetailRetryOCR"
-      @retry-llm="onDetailRetryLLM"
+      @retryOCR="onDetailRetryOCR"
+      @retryLLM="onDetailRetryLLM"
     />
   </Teleport>
 
   <UploadModal :is-open="showUploadModal" @close="showUploadModal = false" @uploaded="onUploaded" />
-  <LocationModal :is-open="showLocationModal" @close="showLocationModal = false" @updated="onLocationUpdated" />
-  <StationModal
-    :is-open="showStationModal"
-    :documents="documents"
-    :locations="locations"
-    @close="showStationModal = false"
-  />
-</template>
+  <LocationModal :is-open="showLocationModal" @close="onLocationModalClose" @locations-updated="loadLocations" />
+   <StationModal
+     :is-open="showStationModal"
+     :documents="documents"
+     :locations="locations"
+     @close="showStationModal = false"
+   />
+   <ModelModal :is-open="showModelModal" @close="onModelModalClose" />
+ </template>
 
 <style scoped>
 .skeleton-shimmer {

@@ -19,7 +19,7 @@ const props = defineProps<Props>();
 
 const emit = defineEmits<{
   close: [];
-  updated: [];
+  locationsUpdated: [];
 }>();
 
 const locations = ref<Location[]>([]);
@@ -119,6 +119,7 @@ const toggleDisplay = async (id: number, current: number) => {
   loc.show_in_tag = current === 0 ? 1 : 0;
   try {
     await updateLocationDisplay(id, current === 0);
+    emit('locationsUpdated');
   } catch (error) {
     loc.show_in_tag = oldValue;
     console.error('更新显示状态失败:', error);

@@ -82,6 +82,11 @@ export async function fetchDocuments(signal?: AbortSignal): Promise<{ documents:
   return res.json();
 }
 
+export async function fetchDocument(docId: number, signal?: AbortSignal): Promise<Document> {
+  const res = await fetchWithRetry(`${API_BASE}/documents/${docId}`, {}, 10000, signal);
+  return res.json();
+}
+
 export async function fetchPreview(docId: number): Promise<Blob> {
   const res = await fetchWithRetry(`${API_BASE}/preview/${docId}`, {}, 60000);
   return res.blob();
@@ -185,6 +190,14 @@ export async function deleteModel(name: string): Promise<void> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
+  });
+}
+
+export async function reorderModels(models: string[]): Promise<void> {
+  await fetchWithRetry(`${API_BASE}/models/reorder`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ models }),
   });
 }
 

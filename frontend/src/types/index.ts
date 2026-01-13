@@ -1,6 +1,8 @@
 export interface Document {
   id: number;
   filename: string;
+  original_filename?: string;
+  display_filename?: string;
   upload_time: string;
   ocr_status: 'pending' | 'processing' | 'done' | 'failed';
   llm_status: 'pending' | 'processing' | 'done' | 'failed';
@@ -8,7 +10,7 @@ export interface Document {
   properties?: PropertyDetails;
   favorite: number;
   extracted_model?: string;
-  station_durations?: StationDuration[];
+  travel_times?: StationDuration[];
   image_width?: number;
   image_height?: number;
   file_hash?: string;
@@ -52,6 +54,7 @@ export interface Station {
 export interface StationDuration {
   id: number;
   location_name: string;
+  location_id: number;
   duration: number;
   show_in_tag: number;
 }

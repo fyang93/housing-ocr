@@ -41,8 +41,15 @@ class Database:
                 show_in_tag INTEGER DEFAULT 0
             )
         """)
+        try:
+            conn.execute("ALTER TABLE station_durations RENAME TO travel_times")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass
+        finally:
+            conn.execute("DROP TABLE IF EXISTS station_durations")
         conn.execute("""
-            CREATE TABLE IF NOT EXISTS station_durations (
+            CREATE TABLE IF NOT EXISTS travel_times (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 station_name TEXT NOT NULL,
                 location_id INTEGER NOT NULL,
@@ -52,13 +59,13 @@ class Database:
             )
         """)
         conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_station_durations_location_id ON station_durations(location_id)"
+            "CREATE INDEX IF NOT EXISTS idx_travel_times_location_id ON travel_times(location_id)"
         )
         conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_station_durations_station_name ON station_durations(station_name)"
+            "CREATE INDEX IF NOT EXISTS idx_travel_times_station_name ON travel_times(station_name)"
         )
         conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_station_durations_composite ON station_durations(station_name, location_id)"
+            "CREATE INDEX IF NOT EXISTS idx_travel_times_composite ON travel_times(station_name, location_id)"
         )
         conn.commit()
         try:
@@ -81,15 +88,23 @@ class Database:
             conn.execute("ALTER TABLE documents ADD COLUMN file_hash TEXT")
         except sqlite3.OperationalError:
             pass
+        try:
+            conn.execute("ALTER TABLE documents ADD COLUMN auto_llm INTEGER")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE documents ADD COLUMN original_filename TEXT")
+        except sqlite3.OperationalError:
+            pass
         conn.commit()
         conn.close()
 
-    def create_document(self, filename: str) -> int:
+    def create_document(self, filename: str, original_filename: str = None) -> int:
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO documents (filename, upload_time) VALUES (?, ?)",
-            (filename, datetime.now().isoformat()),
+            "INSERT INTO documents (filename, original_filename, upload_time, auto_llm) VALUES (?, ?, ?, ?)",
+            (filename, original_filename, datetime.now().isoformat(), 1),
         )
         doc_id = cursor.lastrowid
         conn.commit()
@@ -111,7 +126,8 @@ class Database:
                     doc["properties"] = {}
             else:
                 doc["properties"] = {}
-            doc["station_durations"] = self.get_doc_station_durations(doc_id)
+            doc["travel_times"] = self.get_doc_travel_times(doc_id)
+            doc["display_filename"] = doc.get("original_filename") or doc["filename"]
             return doc
         return None
 
@@ -130,6 +146,7 @@ class Database:
                     doc["properties"] = {}
             else:
                 doc["properties"] = {}
+            doc["display_filename"] = doc.get("original_filename") or doc["filename"]
             return doc
         return None
 
@@ -137,11 +154,7 @@ class Database:
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT * FROM documents ORDER BY favorite DESC, "
-            "CASE WHEN llm_status = 'done' THEN 1 "
-            "WHEN ocr_status = 'pending' OR llm_status = 'pending' THEN 2 "
-            "WHEN ocr_status = 'processing' OR llm_status = 'processing' THEN 3 "
-            "ELSE 4 END, upload_time DESC"
+            "SELECT * FROM documents ORDER BY favorite DESC, upload_time DESC"
         )
         rows = cursor.fetchall()
         conn.close()
@@ -155,7 +168,8 @@ class Database:
                     doc["properties"] = {}
             else:
                 doc["properties"] = {}
-            doc["station_durations"] = self.get_doc_station_durations(doc["id"])
+            doc["travel_times"] = self.get_doc_travel_times(doc["id"])
+            doc["display_filename"] = doc.get("original_filename") or doc["filename"]
             docs.append(doc)
         return docs
 
@@ -216,7 +230,8 @@ class Database:
             "SELECT * FROM documents WHERE (ocr_status = 'pending' OR "
             "(ocr_status = 'done' AND llm_status = 'pending') OR "
             "(ocr_status = 'processing' AND retry_count < 5) OR "
-            "(llm_status = 'processing' AND retry_count < 5)) "
+            "(llm_status = 'processing' AND retry_count < 5) OR "
+            "(llm_status = 'failed')) "
             "ORDER BY favorite DESC, upload_time ASC LIMIT 10"
         )
         rows = cursor.fetchall()
@@ -266,7 +281,7 @@ class Database:
     def reset_ocr_status(self, doc_id: int):
         conn = self._get_connection()
         conn.execute(
-            "UPDATE documents SET ocr_status = 'pending', ocr_text = NULL, llm_status = 'pending', properties = NULL WHERE id = ?",
+            "UPDATE documents SET ocr_status = 'pending', ocr_text = NULL WHERE id = ?",
             (doc_id,),
         )
         conn.commit()
@@ -305,7 +320,7 @@ class Database:
                     doc["properties"] = {}
             else:
                 doc["properties"] = {}
-            doc["station_durations"] = self.get_doc_station_durations(doc["id"])
+            doc["travel_times"] = self.get_doc_travel_times(doc["id"])
             return doc
         return None
 
@@ -338,9 +353,7 @@ class Database:
     def delete_location(self, location_id: int):
         conn = self._get_connection()
         conn.execute("DELETE FROM locations WHERE id = ?", (location_id,))
-        conn.execute(
-            "DELETE FROM station_durations WHERE location_id = ?", (location_id,)
-        )
+        conn.execute("DELETE FROM travel_times WHERE location_id = ?", (location_id,))
         conn.commit()
         conn.close()
 
@@ -369,7 +382,7 @@ class Database:
         cursor.execute(
             """
             SELECT sd.*, l.name as location_name, l.show_in_tag
-            FROM station_durations sd
+            FROM travel_times sd
             JOIN locations l ON sd.location_id = l.id
             WHERE sd.station_name = ?
             ORDER BY l.display_order, l.id
@@ -385,7 +398,7 @@ class Database:
         cursor = conn.cursor()
         cursor.execute("""
             SELECT sd.*, l.name as location_name, l.show_in_tag
-            FROM station_durations sd
+            FROM travel_times sd
             JOIN locations l ON sd.location_id = l.id
             ORDER BY sd.station_name, l.display_order, l.id
         """)
@@ -393,17 +406,11 @@ class Database:
         conn.close()
         return [dict(row) for row in rows]
 
-    def get_station_durations(self, station_name: str) -> list:
-        return self.get_travel_times_for_station(station_name)
-
-    def get_all_station_durations(self) -> list:
-        return self.get_all_travel_times()
-
-    def set_station_duration(self, station_name: str, location_id: int, duration: int):
+    def set_travel_time(self, station_name: str, location_id: int, duration: int):
         conn = self._get_connection()
         conn.execute(
             """
-            INSERT OR REPLACE INTO station_durations (station_name, location_id, duration)
+            INSERT OR REPLACE INTO travel_times (station_name, location_id, duration)
             VALUES (?, ?, ?)
         """,
             (station_name, location_id, duration),
@@ -411,16 +418,16 @@ class Database:
         conn.commit()
         conn.close()
 
-    def delete_station_duration(self, station_name: str, location_id: int):
+    def delete_travel_time(self, station_name: str, location_id: int):
         conn = self._get_connection()
         conn.execute(
-            "DELETE FROM station_durations WHERE station_name = ? AND location_id = ?",
+            "DELETE FROM travel_times WHERE station_name = ? AND location_id = ?",
             (station_name, location_id),
         )
         conn.commit()
         conn.close()
 
-    def get_doc_station_durations(self, doc_id: int) -> list:
+    def get_doc_travel_times(self, doc_id: int) -> list:
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT properties FROM documents WHERE id = ?", (doc_id,))
@@ -439,7 +446,7 @@ class Database:
                             and isinstance(station_name, str)
                             and station_name.strip()
                         ):
-                            durations = self.get_station_durations(station_name)
+                            durations = self.get_travel_times_for_station(station_name)
                             all_durations.extend(durations)
                     return all_durations
             except (json.JSONDecodeError, TypeError, KeyError):

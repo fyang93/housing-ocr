@@ -170,16 +170,16 @@ watch(
             <div v-else class="overflow-hidden rounded-xl border border-gray-200">
               <div class="overflow-x-auto">
                 <div class="overflow-y-auto max-h-[400px]">
-                  <table class="w-full border-collapse">
+                  <table class="w-full border-collapse table-fixed">
                     <thead class="sticky top-0 bg-gray-50 z-30">
                       <tr>
-                        <th class="sticky left-0 bg-gray-50 z-40 px-4 py-3 text-left text-sm font-medium text-gray-700 border-b border-gray-200 min-w-[150px]">
-                          车站
-                        </th>
+                        <th class="sticky left-0 bg-gray-50 z-40 px-4 py-3 text-left text-sm font-medium text-gray-700 border-b border-gray-200 min-w-[150px] truncate">
+                           车站
+                         </th>
                         <th
                           v-for="loc in props.locations"
                           :key="loc.id"
-                          class="px-2 py-3 text-center text-sm font-medium text-gray-700 border-b border-gray-200 w-20"
+                          class="px-4 py-3 text-center text-sm font-medium text-gray-700 border-b border-gray-200 min-w-[120px]"
                         >
                           {{ loc.name }}
                         </th>
@@ -187,14 +187,14 @@ watch(
                     </thead>
                     <tbody>
                       <tr v-for="station in filteredStations" :key="station">
-                        <td class="sticky left-0 bg-white z-10 px-4 py-2 text-sm text-gray-700 border-b border-gray-200 font-medium">
-                          {{ station }}
-                        </td>
-                        <td v-for="loc in props.locations" :key="loc.id" class="px-2 py-2 border-b border-gray-200 w-20">
+                        <td class="sticky left-0 bg-white z-10 px-4 py-3 text-sm text-gray-700 border-b border-gray-200 font-medium truncate min-w-[150px]" :title="station">
+                           {{ station }}
+                         </td>
+                        <td v-for="loc in props.locations" :key="loc.id" class="px-4 py-3 border-b border-gray-200 text-center min-w-[120px]">
                           <input
                             type="number"
                             min="0"
-                            class="w-16 px-1 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
+                            class="w-20 px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
                             :value="getDuration(station, loc.name)"
                             @input="(e) => setDuration(station, loc.name, (e.target as HTMLInputElement).value)"
                           />
