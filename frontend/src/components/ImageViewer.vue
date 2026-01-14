@@ -4,8 +4,6 @@ import {
   X,
   ZoomIn,
   ZoomOut,
-  RotateCw,
-  RotateCcw,
 } from 'lucide-vue-next';
 
 interface Props {
@@ -21,7 +19,6 @@ const emit = defineEmits<{
 
 const show = ref(true);
 const scale = ref(1);
-const rotation = ref(0);
 const fitMode = ref<'long' | 'short'>('long');
 const translateX = ref(0);
 const translateY = ref(0);
@@ -82,14 +79,6 @@ const zoomIn = () => {
 
 const zoomOut = () => {
   scale.value = Math.max(scale.value / 1.2, 0.1);
-};
-
-const rotateRight = () => {
-  rotation.value = (rotation.value + 90) % 360;
-};
-
-const rotateLeft = () => {
-  rotation.value = (rotation.value - 90 + 360) % 360;
 };
 
 const toggleFitMode = () => {
@@ -203,7 +192,6 @@ const handleImageLoad = () => {
 
 onMounted(() => {
   scale.value = 1;
-  rotation.value = 0;
   fitMode.value = 'long';
   translateX.value = 0;
   translateY.value = 0;
@@ -240,7 +228,7 @@ onUnmounted(() => {
   <Teleport to="body">
     <div class="fixed inset-0 bg-black/90 backdrop-blur-md z-[60]">
       <div class="absolute top-0 left-0 right-0 p-3 flex justify-between items-start gap-2 z-10">
-        <h3 class="text-white font-medium truncate px-3 py-1.5 rounded-lg bg-black/40 backdrop-blur-md flex-1 min-w-0">{{ docName }}</h3>
+        <h3 class="text-white font-medium truncate px-3 py-1.5 rounded-lg bg-black/40 backdrop-blur-md max-w-[60vw] min-w-0">{{ docName }}</h3>
         <button
           @click="emit('close')"
           class="w-9 h-9 rounded-full bg-black/40 backdrop-blur-md hover:bg-white/20 flex items-center justify-center text-white transition shrink-0"
@@ -285,7 +273,7 @@ onUnmounted(() => {
             :style="{
               width: `${naturalWidth}px`,
               height: `${naturalHeight}px`,
-              transform: `translate(${translateX}px, ${translateY}px) rotate(${rotation}deg) scale(${scale})`,
+              transform: `translate(${translateX}px, ${translateY}px) scale(${scale})`,
             }"
             @load="handleImageLoad"
             @dragstart.prevent
@@ -318,21 +306,6 @@ onUnmounted(() => {
         </button>
 
         <div class="w-px h-6 bg-white/30 mx-2"></div>
-
-        <button
-          @click="rotateLeft"
-          class="w-10 h-10 rounded-lg bg-black/40 backdrop-blur-md hover:bg-white/20 flex items-center justify-center text-white transition"
-          title="向左旋转"
-        >
-          <RotateCcw class="w-5 h-5" />
-        </button>
-        <button
-          @click="rotateRight"
-          class="w-10 h-10 rounded-lg bg-black/40 backdrop-blur-md hover:bg-white/20 flex items-center justify-center text-white transition"
-          title="向右旋转"
-        >
-          <RotateCw class="w-5 h-5" />
-        </button>
       </div>
     </div>
   </Teleport>
