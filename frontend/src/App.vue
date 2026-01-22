@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import type { Document } from '@/types';
 import { useDocuments } from '@/composables/useDocuments';
 import { useLocations } from '@/composables/useLocations';
@@ -68,6 +68,7 @@ const showFilterPanel = ref(false);
 const showMobileMenu = ref(false);
 const jumpPageInput = ref<number | null>(null);
 const retryLoading = ref(false);
+const activeIntervals = new Set<ReturnType<typeof setInterval>>();
 
 const pageNumbers = computed(() => {
   if (totalPages.value <= 7) {
@@ -238,11 +239,14 @@ const pollDocumentStatus = (docId: number) => {
     const doc = documents.value.find(d => d.id === docId);
     if (doc && doc.ocr_status === 'done' && doc.llm_status === 'done') {
       clearInterval(checkInterval);
+      activeIntervals.delete(checkInterval);
     } else if (attempts > maxAttempts) {
       clearInterval(checkInterval);
+      activeIntervals.delete(checkInterval);
     }
     attempts++;
   }, 2000);
+  activeIntervals.add(checkInterval);
 };
 
 const onDetailSaved = (updatedProperties: PropertyDetails, docId: number) => {
@@ -286,13 +290,16 @@ const onDetailRetryOCR = async (docId: number) => {
       }
       if (doc && doc.ocr_status === 'done' && doc.llm_status === 'done') {
         clearInterval(checkInterval);
+        activeIntervals.delete(checkInterval);
         retryLoading.value = false;
       } else if (attempts > 30) {
         clearInterval(checkInterval);
+        activeIntervals.delete(checkInterval);
         retryLoading.value = false;
       }
       attempts++;
     }, 2000);
+    activeIntervals.add(checkInterval);
   } catch (error) {
     console.error('重试OCR失败:', error);
     alert('重试OCR失败: ' + (error as Error).message);
@@ -314,13 +321,16 @@ const onDetailRetryLLM = async (docId: number) => {
       }
       if (doc && doc.llm_status === 'done') {
         clearInterval(checkInterval);
+        activeIntervals.delete(checkInterval);
         retryLoading.value = false;
       } else if (attempts > 30) {
         clearInterval(checkInterval);
+        activeIntervals.delete(checkInterval);
         retryLoading.value = false;
       }
       attempts++;
     }, 2000);
+    activeIntervals.add(checkInterval);
   } catch (error) {
     console.error('重试LLM失败:', error);
     alert('重试LLM失败: ' + (error as Error).message);
@@ -338,6 +348,11 @@ const onModelModalClose = () => {
 
 onMounted(() => {
   loadLocations();
+});
+
+onBeforeUnmount(() => {
+  activeIntervals.forEach(interval => clearInterval(interval));
+  activeIntervals.clear();
 });
 
 watch(currentPage, () => {

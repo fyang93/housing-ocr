@@ -111,3 +111,94 @@ just dev     # 同时启动前后端开发服务器
 ## License
 
 MIT
+
+## 安全
+
+应用包含完整的安全功能：
+
+### IP地理位置过滤（可配置）
+- 使用MaxMind GeoIP2数据库检测客户端IP所在国家
+- 可配置允许的国家列表（ISO 3166-1 alpha-2格式）
+- 下载地址：https://dev.maxmind.com/geoip/geolite2-free-geolocation-data
+- 放置在：`data/` 目录
+- 或在 `config.toml` 中配置自定义路径和允许的国家
+- 如果数据库不可用，则允许所有IP（安全回退）
+
+**配置示例**：
+```toml
+[security]
+# 允许的国家代码列表（ISO 3166-1 alpha-2）
+allowed_countries = ["JP"]  # 仅日本
+allowed_countries = ["JP", "US", "CN", "KR"]  # 多个国家
+allowed_countries = []  # 允许所有国家（禁用地理过滤）
+allowed_countries = ["*"]  # 允许所有国家
+```
+
+### 路径遍历防护
+- 检测并阻止包含路径遍历模式的请求（`../`、`..\\`、URL编码变体）
+- 记录可疑尝试用于黑名单
+- 自动对具有可疑活动的IP进行黑名单处理
+
+### IP黑名单
+- 手动IP黑名单
+- 超过可疑活动阈值后自动封禁（默认：3次尝试）
+- 可配置封禁时长（默认：24小时）
+- 内存持久化存储
+
+### 速率限制
+- 每IP每分钟限制请求数（默认：60请求/分钟）
+- 内存滑动窗口算法
+- 超过限制时返回HTTP 429
+
+### 安全头
+- X-Content-Type-Options: nosniff
+- X-Frame-Options: DENY
+- X-XSS-Protection: 1; mode=block
+- Referrer-Policy: strict-origin-when-cross-origin
+- Content-Security-Policy: 对资源加载的严格控制
+- Strict-Transport-Security (HSTS)：强制HTTPS（使用HTTPS时）
+- Permissions-Policy：控制浏览器功能
+
+### 配置
+
+所有安全功能可在 `config.toml` 中配置：
+
+```toml
+[security]
+# Enable security features
+enable_security_headers = true
+enable_hsts = true
+enable_csp = true
+
+# IP geolocation filtering
+enable_ip_geolocation = true
+geoip_database_path = "./data/GeoLite2-Country.mmdb"
+
+# Allowed country codes (ISO 3166-1 alpha-2)
+# Examples:
+#   ["JP"] - Japan only
+#   ["JP", "US", "CN", "KR"] - Multiple countries
+#   [] or ["*"] - Allow all countries (disable geolocation)
+allowed_countries = ["JP"]
+
+# Path traversal protection
+enable_path_traversal_protection = true
+
+# IP blacklist
+enable_ip_blacklist = true
+auto_ban_suspicious_ips = true
+auto_ban_threshold = 3
+ban_duration = 86400
+
+# Rate limiting
+enable_rate_limiting = true
+requests_per_minute = 60
+
+# CORS
+enable_cors = true
+allow_origins = ["*"]
+allow_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+allow_headers = ["*"]
+```
+
+生产环境请将 `allow_origins` 改为特定域名而非 `"*"`。

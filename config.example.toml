@@ -17,3 +17,46 @@ host = "0.0.0.0"
 port = 8080
 upload_dir = "./uploads"
 db_path = "./data.db"
+
+[security]
+# Enable security features
+enable_security_headers = true
+enable_hsts = true
+enable_csp = true
+
+# IP geolocation filtering
+enable_ip_geolocation = true
+geoip_database_path = "./data/GeoLite2-Country.mmdb"
+
+# Allowed country codes (ISO 3166-1 alpha-2)
+# Examples:
+#   ["JP"] - Japan only
+#   ["JP", "US", "CN", "KR"] - Multiple countries
+#   [] or ["*"] - Allow all countries (disable geolocation)
+allowed_countries = ["JP"]
+
+# If geolocation database is not available, allow all IPs (safe fallback)
+allow_all_if_geoip_unavailable = true
+
+# Path traversal protection
+enable_path_traversal_protection = true
+
+# IP blacklist
+enable_ip_blacklist = true
+auto_ban_suspicious_ips = true
+# Number of suspicious activities before auto-ban
+auto_ban_threshold = 3
+# Ban duration in seconds (24 hours)
+ban_duration = 86400
+
+# Rate limiting
+enable_rate_limiting = true
+# Maximum requests per minute per IP
+requests_per_minute = 60
+
+# CORS (Cross-Origin Resource Sharing)
+# Set allow_origins to specific domains for production, ["*"] for development
+enable_cors = true
+allow_origins = ["*"]
+allow_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+allow_headers = ["*"]

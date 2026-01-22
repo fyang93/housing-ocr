@@ -11,6 +11,7 @@ class DocumentProcessor:
         self.config = config
         self.db = db
         self.ocr_client = OCRClient(config["ocr"]["endpoint"], config["ocr"]["model"])
+        self._shutdown_event = asyncio.Event()
 
         def _update_models_callback(models):
             config["llm"]["models"] = list(models)
@@ -147,7 +148,7 @@ class DocumentProcessor:
                         elif current_doc["llm_status"] == "processing":
                             self.db.update_llm_status(doc_id, "pending")
 
-        while True:
+        while not self._shutdown_event.is_set():
             try:
                 pending_docs = self.db.get_pending_documents()
                 if pending_docs:
@@ -173,6 +174,12 @@ class DocumentProcessor:
 
                 traceback.print_exc()
                 await asyncio.sleep(1)
+
+        # Gracefully shutdown: wait for all active tasks to complete
+        print("[PROCESSOR] 接收到关闭信号，等待任务完成...")
+        if active_tasks:
+            await asyncio.wait(active_tasks)
+        print("[PROCESSOR] 所有任务已完成，处理器已关闭")
 
     def close(self):
         self.ocr_client.close()

@@ -304,8 +304,6 @@ onUnmounted(() => {
         >
           <ZoomIn class="w-5 h-5" />
         </button>
-
-        <div class="w-px h-6 bg-white/30 mx-2"></div>
       </div>
     </div>
   </Teleport>

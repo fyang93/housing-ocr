@@ -92,6 +92,11 @@ export async function fetchPreview(docId: number): Promise<Blob> {
   return res.blob();
 }
 
+/**
+ * Fetch thumbnail for a document and create object URL.
+ * @param docId Document ID
+ * @returns Blob URL - MUST call URL.revokeObjectURL() when done to prevent memory leak
+ */
 export async function fetchThumbnail(docId: number): Promise<string> {
   const res = await fetchWithRetry(`${API_BASE}/preview/${docId}?thumbnail=true`);
   const blob = await res.blob();

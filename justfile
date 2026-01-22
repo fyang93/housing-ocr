@@ -28,3 +28,7 @@ dev:
     @uv run uvicorn src.app:app --reload --port 8081 &
     @echo "启动前端开发服务器 (http://localhost:8080)..."
     @cd frontend && bun run dev
+
+# 更新 GeoIP2 数据库
+geoip:
+    uv run python scripts/update_geoip_database.py

@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import shutil
 from pathlib import Path
@@ -6,12 +7,23 @@ import fitz
 import tomli
 import tomli_w
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 from src.models import Database
 from src.processor import DocumentProcessor
+
+from src.geolocation import GeoIPManager
+from src.security import (
+    IPBlacklistManager,
+    IPBlacklistMiddleware,
+    PathTraversalMiddleware,
+    RateLimiter,
+    RateLimitMiddleware,
+    SecurityHeadersMiddleware,
+)
 
 
 app = FastAPI(title="Housing OCR")
@@ -35,6 +47,60 @@ def save_config(config: dict):
 
 
 config = load_config()
+
+security_config = config.get("security", {})
+
+blacklist_manager = IPBlacklistManager(
+    auto_ban_threshold=security_config.get("auto_ban_threshold", 3)
+)
+
+rate_limiter = RateLimiter(
+    requests_per_minute=security_config.get("requests_per_minute", 60)
+)
+
+geoip_manager = GeoIPManager(
+    database_path=security_config.get("geoip_database_path"),
+    allowed_countries=security_config.get("allowed_countries", ["JP"]),
+)
+
+if security_config.get("enable_cors", True):
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=security_config.get("allow_origins", ["*"]),
+        allow_methods=security_config.get("allow_methods", ["*"]),
+        allow_headers=security_config.get("allow_headers", ["*"]),
+    )
+
+if security_config.get("enable_security_headers", True):
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        enable_hsts=security_config.get("enable_hsts", True),
+        enable_csp=security_config.get("enable_csp", True),
+    )
+
+if security_config.get("enable_rate_limiting", True):
+    app.add_middleware(RateLimitMiddleware, rate_limiter=rate_limiter)
+
+if security_config.get("enable_ip_blacklist", True):
+    app.add_middleware(IPBlacklistMiddleware, blacklist_manager=blacklist_manager)
+
+if security_config.get("enable_ip_geolocation", True):
+    from src.geolocation import IPWhitelistMiddleware
+
+    app.add_middleware(
+        IPWhitelistMiddleware,
+        geoip_manager=geoip_manager,
+        enable_geolocation=security_config.get("enable_ip_geolocation", False),
+    )
+
+if security_config.get("enable_path_traversal_protection", True):
+    app.add_middleware(
+        PathTraversalMiddleware,
+        blacklist_manager=blacklist_manager
+        if security_config.get("auto_ban_suspicious_ips", True)
+        else None,
+    )
+
 db = Database(config["app"]["db_path"])
 
 
@@ -74,7 +140,6 @@ async def root():
 
 @app.post("/api/upload")
 async def upload_document(file: UploadFile = File(...)):
-
     upload_dir = Path(config["app"]["upload_dir"])
     upload_dir.mkdir(exist_ok=True)
 
@@ -146,7 +211,6 @@ async def get_preview_info(doc_id: int):
     file_path = upload_dir / doc["filename"]
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="文件不存在")
-
 
     try:
         if file_path.suffix.lower() == ".pdf":
@@ -333,8 +397,10 @@ async def preview_document(doc_id: int, thumbnail: bool = False):
                 pm = page.get_pixmap(matrix=mat, alpha=False)
                 img_bytes = pm.tobytes("ppm")
                 img = Image.open(io.BytesIO(img_bytes))
+                img.load()  # Load image data into memory before closing file
         else:
-            img = Image.open(file_path)
+            with Image.open(file_path) as opened_img:
+                img = opened_img.copy()  # Copy the image to keep it after file closes
 
         # 计算缩略图尺寸
         ratio = max_width / img.width
@@ -379,7 +445,8 @@ async def preview_document(doc_id: int, thumbnail: bool = False):
             buffer.seek(0)
             return Response(content=buffer.getvalue(), media_type="image/jpeg")
 
-        img = Image.open(file_path)
+        with Image.open(file_path) as opened_img:
+            img = opened_img.copy()
         if img.width > MAX_SIZE or img.height > MAX_SIZE:
             ratio = min(MAX_SIZE / img.width, MAX_SIZE / img.height)
             new_width = int(img.width * ratio)
@@ -393,7 +460,10 @@ async def preview_document(doc_id: int, thumbnail: bool = False):
 
 
 @app.on_event("shutdown")
-def shutdown_event():
+async def shutdown_event():
+    """Gracefully shutdown the processor and wait for tasks to complete."""
+    processor._shutdown_event.set()
+    await asyncio.sleep(0.5)  # Give the loop time to exit
     processor.close()
 
 

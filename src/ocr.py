@@ -64,11 +64,11 @@ class OCRClient:
             print(f"{doc_tag} OCR完成 ({len(result)} 字符)")
             return result
         else:
-            image = Image.open(file_path)
-            image = self._resize_image(image)
-            result = self._extract_from_image(image)
-            print(f"{doc_tag} OCR完成 ({len(result) if result else 0} 字符)")
-            return result
+            with Image.open(file_path) as img:
+                image = self._resize_image(img)
+                result = self._extract_from_image(image)
+                print(f"{doc_tag} OCR完成 ({len(result) if result else 0} 字符)")
+                return result
 
     def _extract_from_image(self, image: Image.Image) -> str:
         img_base64 = self._image_to_base64(image)
