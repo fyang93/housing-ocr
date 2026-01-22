@@ -13,11 +13,16 @@ cp config.example.toml config.toml
 # 编辑 config.toml，设置 OpenRouter API Key
 
 # 3. 启动服务 (两个终端)
-just ocr    # OCR 服务
-just run    # Web 应用
-```
+# 终端 1: 启动 OCR 服务
+just ocr
 
-访问 http://localhost:8080
+# 终端 2: 选择以下任一模式
+# 开发模式（推荐）：前后端同时运行，热重载
+just dev    # 访问 http://localhost:8080
+
+# 生产模式：先构建前端，再启动后端（使用静态文件）
+just build && just run    # 访问 http://localhost:8080
+```
 
 ## 功能特性
 
@@ -50,10 +55,14 @@ endpoint = "http://localhost:8000/v1"
 model = "rednote-hilab/dots.ocr"
 
 [app]
-port = 8080
+port = 8080  # 生产模式端口（just run）
 upload_dir = "./uploads"
 db_path = "./data.db"
 ```
+
+**端口说明**：
+- `just dev`：前端 8080，后端 8081（开发模式）
+- `just run`：8080（生产模式，前后端统一端口）
 
 ## 提取的属性
 
@@ -93,6 +102,10 @@ housing-ocr/
 │   ├── dist/               # 构建产物
 │   ├── package.json
 │   └── vite.config.ts
+├── scripts/                # 实用脚本
+│   └── update_geoip_database.py  # GeoIP2 数据库更新脚本
+├── data/                   # 数据目录
+│   └── GeoLite2-Country.mmdb     # GeoIP2 数据库（可选）
 ├── config.example.toml     # 配置示例
 ├── justfile                # 命令行任务
 └── pyproject.toml
@@ -101,11 +114,13 @@ housing-ocr/
 ## 命令
 
 ```bash
-just sync    # 安装 Python 依赖
-just ocr     # 启动 OCR 服务
-just run     # 启动 Web 服务
-just build   # 构建前端
-just dev     # 同时启动前后端开发服务器
+just default     # 显示所有可用命令
+just sync        # 安装 Python 依赖
+just ocr         # 启动 vLLM OCR 模型服务（需要 GPU）
+just run         # 启动后端 API 服务（生产模式，自动使用已构建的前端静态文件，端口 8080）
+just build       # 构建前端为静态文件（部署前使用）
+just dev         # 启动完整开发环境：前端开发服务器 (http://localhost:8080) + 后端 (http://localhost:8081)
+just geoip       # 更新 GeoIP2 数据库
 ```
 
 ## License
@@ -120,6 +135,7 @@ MIT
 - 使用MaxMind GeoIP2数据库检测客户端IP所在国家
 - 可配置允许的国家列表（ISO 3166-1 alpha-2格式）
 - 下载地址：https://dev.maxmind.com/geoip/geolite2-free-geolocation-data
+- 更新数据库：`just geoip`
 - 放置在：`data/` 目录
 - 或在 `config.toml` 中配置自定义路径和允许的国家
 - 如果数据库不可用，则允许所有IP（安全回退）
