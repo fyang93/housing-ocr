@@ -55,14 +55,22 @@ class TokenAuthMiddleware(BaseHTTPMiddleware):
         self.access_token = access_token
 
     async def dispatch(self, request: Request, call_next):
-        """Check for valid token in query parameters."""
+        """Check for valid token in query parameters. Skip validation for static assets."""
+        path = request.url.path
+
+        # Skip token validation for static assets and root path
+        if path == "/" or path.startswith("/assets/"):
+            response = await call_next(request)
+            return response
+
+        # Require token for API routes
         token = request.query_params.get("token")
 
         if token != self.access_token:
-            print(f"[AUTH] Blocked: token={token}")
+            print(f"[AUTH] Blocked: {path} token={token}")
             return Response(status_code=200)
 
-        print(f"[AUTH] Allowed: token={token}")
+        print(f"[AUTH] Allowed: {path} token={token}")
         response = await call_next(request)
         return response
 

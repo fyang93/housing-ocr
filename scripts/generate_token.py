@@ -11,8 +11,7 @@ from pathlib import Path
 
 def generate_secure_token(length: int = 8) -> str:
     """Generate cryptographically secure random token."""
-    # Exclude characters that cause URL issues: # & = ? / % and space
-    alphabet = string.ascii_letters + string.digits + "-_!@$*+~^|"
+    alphabet = string.ascii_letters + string.digits + "-_!$*+"
     return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
