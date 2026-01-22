@@ -89,7 +89,7 @@ const saveProperties = async () => {
     const cleanedProperties = { ...properties.value };
     if (cleanedProperties.stations) {
       cleanedProperties.stations = cleanedProperties.stations.filter(
-        station => station.name.trim() || station.line.trim() || station.walking_minutes
+        station => station.name.trim() || station.lines?.join('').trim() || station.walking_minutes
       );
     }
 
@@ -134,17 +134,33 @@ const openImageViewer = () => {
 
 const ocrText = computed(() => props.doc?.ocr_text || '暂无OCR文本');
 
-// 确保至少有3个车站编辑框
+// 辅助函数：将lines数组转换为逗号分隔的字符串
+const linesToString = (lines: string[]) => {
+  return Array.isArray(lines) ? lines.join('、') : '';
+};
+
+// 辅助函数：将字符串转换为lines数组
+const stringToLines = (value: string) => {
+  if (!value || typeof value !== 'string') return [];
+  return value.split(/[,，、]/).map(l => l.trim()).filter(l => l);
+};
+
+// 更新车站的lines
+const updateStationLines = (station: any, value: string) => {
+  station.lines = stringToLines(value);
+};
+
+// 确保至少有1个车站编辑框，允许编辑所有车站
 const editableStations = computed(() => {
   const stations = properties.value.stations || [];
-  const minStations = 3;
+  const minStations = 1;
 
-  // 如果现有的车站少于3个，添加空的占位符
+  // 如果现有的车站少于1个，添加空的占位符
   while (stations.length < minStations) {
-    stations.push({ name: '', line: '', walking_minutes: '' });
+    stations.push({ name: '', lines: [], walking_minutes: '' });
   }
 
-  return stations.slice(0, minStations);
+  return stations;
 });
 </script>
 
@@ -419,14 +435,15 @@ const editableStations = computed(() => {
                             class="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 bg-white text-sm"
                           />
                        </div>
-                       <div class="sm:col-span-6">
-                          <input
-                            v-model="station.line"
-                            type="text"
-                            placeholder="线路"
-                            class="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 bg-white text-sm"
-                          />
-                       </div>
+                        <div class="sm:col-span-6">
+                           <input
+                             :value="linesToString(station.lines)"
+                             @input="(e) => updateStationLines(station, (e.target as HTMLInputElement).value)"
+                             type="text"
+                             placeholder="线路 (多个线路用逗号、顿号或空格分隔)"
+                             class="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 bg-white text-sm"
+                           />
+                        </div>
                        <div class="sm:col-span-2">
                          <div class="relative">
                             <input

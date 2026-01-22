@@ -138,18 +138,18 @@ const isLoading = computed(() => {
           <span v-else-if="isLoading" class="animate-pulse bg-gray-200 rounded h-4 w-48"></span>
           <span v-else class="text-gray-400">--</span>
         </div>
-        <div v-if="doc.properties?.stations?.length || locationTags.length" class="flex items-start gap-2 text-sm">
-          <Train class="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
-          <div class="flex flex-wrap gap-1.5">
-            <span
-              v-for="s in doc.properties.stations"
-              :key="s.name"
-              class="inline-flex items-center px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded text-xs font-medium transition-all duration-300 group-hover:scale-105 group-hover:bg-emerald-100"
-            >
-              {{ s.name }}
-              <Footprints class="w-3 h-3 mx-0.5 text-emerald-500" />
-              {{ s.walking_minutes }}分
-            </span>
+         <div v-if="doc.properties?.stations?.length || locationTags.length" class="flex items-start gap-2 text-sm">
+           <Train class="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+           <div class="flex flex-wrap gap-1.5">
+              <span
+                v-for="s in doc.properties.stations"
+                :key="s.name"
+                class="inline-flex items-center px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded text-xs font-medium transition-all duration-300 group-hover:scale-105 group-hover:bg-emerald-100"
+              >
+                {{ s.name }}
+                <Footprints class="w-3 h-3 mx-0.5 text-emerald-500" />
+                {{ s.walking_minutes }}分
+              </span>
             <span
               v-for="lt in locationTags"
               :key="lt.location_name"

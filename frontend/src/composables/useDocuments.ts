@@ -1,4 +1,4 @@
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import type { Document, FilterState, PropertyDetails } from '@/types';
 import { fetchDocuments, cleanupDocuments, fetchDocument } from '@/api';
 
@@ -10,6 +10,7 @@ export function useDocuments() {
   const currentPage = ref(1);
   const loading = ref(true);
   const error = ref<string | null>(null);
+  const activeIntervals = new Set<ReturnType<typeof setInterval>>();
 
   const filters = ref<FilterState>({
     search: '',
@@ -177,8 +178,42 @@ export function useDocuments() {
     });
   };
 
+  const startPollingPendingDocuments = () => {
+    documents.value.forEach(doc => {
+      const needsPolling =
+        doc.ocr_status === 'pending' ||
+        doc.ocr_status === 'processing' ||
+        doc.llm_status === 'pending' ||
+        doc.llm_status === 'processing';
+
+      if (needsPolling) {
+        let attempts = 0;
+        const maxAttempts = 60;
+        const checkInterval = setInterval(async () => {
+          await updateDocumentById(doc.id);
+          const updatedDoc = documents.value.find(d => d.id === doc.id);
+          if (updatedDoc && updatedDoc.ocr_status === 'done' && updatedDoc.llm_status === 'done') {
+            clearInterval(checkInterval);
+            activeIntervals.delete(checkInterval);
+          } else if (attempts > maxAttempts) {
+            clearInterval(checkInterval);
+            activeIntervals.delete(checkInterval);
+          }
+          attempts++;
+        }, 2000);
+        activeIntervals.add(checkInterval);
+      }
+    });
+  };
+
   onMounted(() => {
     loadDocuments();
+    startPollingPendingDocuments();
+  });
+
+  onBeforeUnmount(() => {
+    activeIntervals.forEach(interval => clearInterval(interval));
+    activeIntervals.clear();
   });
 
   return {
@@ -200,5 +235,6 @@ export function useDocuments() {
     updateDocumentProperties,
     addDocument,
     preloadImages,
+    activeIntervals,
   };
 }

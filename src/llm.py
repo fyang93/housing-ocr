@@ -98,7 +98,7 @@ Fields to extract:
 17. repair_fee: Monthly repair fund in 円
 18. exclusive_area: Exclusive area in m²
 19. balcony_area: Balcony area in m² (if available)
-20. stations: Array of up to 3 nearest stations, each as object with: name (station name), line (train line), walking_minutes (walking time)
+20. stations: Array of all nearest stations with WALKING distance only. Each station object contains: name (station name), lines (array of train line names), walking_minutes (walking time in minutes). If same station has multiple lines, combine them into ONE station object with multiple lines in the array.
 21. parking: Parking availability
 22. pet_policy: Pet policy
 23. corner_room: Whether it's a corner room (角部屋). Set to null if not mentioned
@@ -106,7 +106,11 @@ Fields to extract:
 Important:
 - Convert units: 畳→m²(×1.62), 坪→m²(×3.3)
 - Set null if field is not found
-- stations should be an array of objects, e.g., [{{"name": "渋谷", "line": "山手线", "walking_minutes": 5}}]
+- **stations: ONLY include stations with WALKING distance (徒歩). EXCLUDE any stations with 直通/乗換/バス/電車 or other non-walking transport methods**
+- For stations, look for keywords like "徒歩〇分" or "歩〇分". Common patterns: "駅名 徒歩5分", "〇〇駅 歩5分"
+- If distance is described as "直通5分", "乗換5分", "バス5分" etc., DO NOT include it in stations array
+- **CRITICAL: If the same station appears with multiple train lines, merge them into ONE station object with lines as an array. Do NOT create duplicate station entries.**
+- stations should be an array of objects with lines as array, e.g., [{{"name": "渋谷", "lines": ["山手線", "銀座線", "半蔵門線"], "walking_minutes": 5}}]
 - Return ONLY JSON, no other text
 - Ensure valid JSON format
 
@@ -120,11 +124,34 @@ Example response:
     "room_layout": "2LDK",
     "build_year": 2018,
     "stations": [
-        {{"name": "渋谷", "line": "山手线", "walking_minutes": 5}},
-        {{"name": "表参道", "line": "銀座線", "walking_minutes": 8}}
+        {{"name": "渋谷", "lines": ["山手線", "銀座線", "半蔵門線"], "walking_minutes": 5}},
+        {{"name": "表参道", "lines": ["銀座線", "千代田線"], "walking_minutes": 8}},
+        {{"name": "原宿", "lines": ["山手線"], "walking_minutes": 10}}
     ],
-    "parking": "空無 (月額23,000円/台)",
-}}"""
+    "parking": "空無 (月額23,000円/台)"
+}}
+
+Example of what NOT to include in stations:
+- "池袋 直通5分" ❌ (this is direct train connection, not walking)
+- "新宿 バス10分" ❌ (this is bus, not walking)
+- "渋谷 乗換5分" ❌ (this is transfer time, not walking)
+- "表参道 徒歩8分" ✅ (this is walking distance, INCLUDE this)
+
+Example of correct station merging:
+Input text mentions:
+- "渋谷駅(山手線) 徒歩5分"
+- "渋谷駅(銀座線) 徒歩5分"
+- "渋谷駅(半蔵門線) 徒歩5分"
+
+Correct output:
+{{"name": "渋谷", "lines": ["山手線", "銀座線", "半蔵門線"], "walking_minutes": 5}}
+
+Incorrect output (DO NOT do this):
+[
+    {{"name": "渋谷", "lines": ["山手線"], "walking_minutes": 5}},
+    {{"name": "渋谷", "lines": ["銀座線"], "walking_minutes": 5}},
+    {{"name": "渋谷", "lines": ["半蔵門線"], "walking_minutes": 5}}
+]"""
 
         for model in self.models[:]:
             if model in self.model_429_times:

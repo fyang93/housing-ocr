@@ -50,6 +50,7 @@ const {
   addDocument,
   preloadImages,
   updateDocumentById,
+  activeIntervals,
 } = useDocuments();
 
 const {
@@ -68,7 +69,6 @@ const showFilterPanel = ref(false);
 const showMobileMenu = ref(false);
 const jumpPageInput = ref<number | null>(null);
 const retryLoading = ref(false);
-const activeIntervals = new Set<ReturnType<typeof setInterval>>();
 
 const pageNumbers = computed(() => {
   if (totalPages.value <= 7) {
@@ -348,11 +348,6 @@ const onModelModalClose = () => {
 
 onMounted(() => {
   loadLocations();
-});
-
-onBeforeUnmount(() => {
-  activeIntervals.forEach(interval => clearInterval(interval));
-  activeIntervals.clear();
 });
 
 watch(currentPage, () => {

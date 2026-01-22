@@ -47,7 +47,7 @@ export interface PropertyDetails {
 
 export interface Station {
   name: string;
-  line: string;
+  lines: string[];
   walking_minutes: string;
 }
 
