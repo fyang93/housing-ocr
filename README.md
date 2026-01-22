@@ -134,12 +134,13 @@ just dev         # 启动完整开发环境：前端开发服务器 (http://loca
 运行 `just token` 命令生成加密安全的访问令牌：
 
 ```bash
-just token
+just token        # 默认 8 字符
+just token 16     # 16 字符
 ```
 
 **安全特性**：
 - 使用 Python `secrets` 模块（加密安全）
-- 8 字符长度（包含大小写字母、数字和特殊字符）
+- 默认 8 字符长度（可自定义），包含大小写字母、数字和特殊字符
 - 不可预测，抵抗字典攻击和暴力破解
 - 自动更新 `config.toml`
 - 显示完整的访问 URL（带 token）
@@ -148,6 +149,8 @@ just token
 ```
 Generated token (8 characters):
   aB3!xK9p
+
+Access URL: http://localhost:8080?token=aB3!xK9p
 ```
 
 ## License
