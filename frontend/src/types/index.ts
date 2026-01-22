@@ -9,6 +9,7 @@ export interface Document {
   ocr_text?: string;
   properties?: PropertyDetails;
   favorite: number;
+  sort_order?: number; // Favorite: favorite_time, Non-favorite: upload_time
   extracted_model?: string;
   travel_times?: StationDuration[];
   image_width?: number;

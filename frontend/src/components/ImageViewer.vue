@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { nextTick, ref, onMounted, onUnmounted } from 'vue';
+import { nextTick, ref, onMounted, onUnmounted, computed } from 'vue';
 import {
   X,
   ZoomIn,
   ZoomOut,
 } from 'lucide-vue-next';
+import { getAuthToken } from '@/composables/useAuthToken';
 
 interface Props {
   docId: number;
@@ -31,7 +32,14 @@ const initialScale = ref(1);
 const imageLoaded = ref(false);
 const isInitialFit = ref(true);
 
-const imageUrl = ref(`/api/preview/${props.docId}`);
+const imageUrl = computed(() => {
+  const token = getAuthToken();
+  const url = `/api/preview/${props.docId}`;
+  if (token) {
+    return `${url}?token=${encodeURIComponent(token)}`;
+  }
+  return url;
+});
 const naturalWidth = ref(1200);
 const naturalHeight = ref(1600);
 

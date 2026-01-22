@@ -41,6 +41,7 @@ export function useDocuments() {
   const updateDocumentById = async (docId: number) => {
     try {
       const doc = await fetchDocument(docId);
+      if (!doc) return;
       const index = documents.value.findIndex(d => d.id === docId);
       if (index !== -1) {
         documents.value.splice(index, 1, doc);
@@ -89,7 +90,24 @@ export function useDocuments() {
 
   const sortedDocuments = computed(() => {
     return [...filteredDocuments.value].sort((a, b) => {
-      return b.favorite - a.favorite;
+      const aIsFavorite = a.favorite === 1;
+      const bIsFavorite = b.favorite === 1;
+      
+      if (aIsFavorite !== bIsFavorite) {
+        // Favorites come first
+        return bIsFavorite ? 1 : -1;
+      }
+      
+      const aOrder = a.sort_order ?? 0;
+      const bOrder = b.sort_order ?? 0;
+      
+      if (aIsFavorite) {
+        // Favorites: earlier favorites first (ASC)
+        return aOrder - bOrder;
+      } else {
+        // Non-favorites: newer first (DESC)
+        return bOrder - aOrder;
+      }
     });
   });
 

@@ -3,6 +3,10 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import type { Document } from '@/types';
 import { useDocuments } from '@/composables/useDocuments';
 import { useLocations } from '@/composables/useLocations';
+import { useAuthToken } from '@/composables/useAuthToken';
+
+// Initialize token handling (extracts from URL, stores to localStorage)
+useAuthToken();
 import { fetchPreview, toggleFavorite, deleteDocument, retryOCR, retryLLM, fetchDocument } from '@/api';
 import DocumentCard from '@/components/DocumentCard.vue';
 import DocumentCardSkeleton from '@/components/DocumentCardSkeleton.vue';
@@ -176,8 +180,15 @@ const closeDetailModal = () => {
 
 const onFavoriteToggle = async (doc: Document) => {
   const originalFavorite = doc.favorite;
+  const isFavoriting = originalFavorite === 0;
+
   // 乐观更新：立即切换前端状态
-  doc.favorite = originalFavorite === 0 ? 1 : 0;
+  doc.favorite = isFavoriting ? 1 : 0;
+  if (isFavoriting) {
+    // 喜欢时：设置 sort_order 为喜欢时间
+    doc.sort_order = Date.now();
+  }
+  // 取消喜欢时：不修改 sort_order，位置保持不变
 
   try {
     const newFavorite = await toggleFavorite(doc.id);

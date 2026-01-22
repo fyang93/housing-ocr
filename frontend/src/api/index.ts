@@ -1,4 +1,5 @@
 import type { Document, Location } from '@/types';
+import { getAuthToken } from '@/composables/useAuthToken';
 
 const API_BASE = '/api';
 
@@ -10,6 +11,13 @@ async function fetchWithRetry(
   maxRetries = 3
 ): Promise<Response> {
   let lastError: Error | null = null;
+
+  // Add token to URL if available (priority: URL param > localStorage)
+  const token = getAuthToken();
+  if (token && !url.includes('?token=')) {
+    const separator = url.includes('?') ? '&' : '?';
+    url = `${url}${separator}token=${encodeURIComponent(token)}`;
+  }
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     if (externalSignal?.aborted) {
@@ -32,7 +40,7 @@ async function fetchWithRetry(
 
       await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
     }
-  }
+   }
 
   throw lastError;
 }
@@ -41,50 +49,41 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-  let signal = controller.signal;
-  if (externalSignal) {
-    const combinedController = new AbortController();
-    const onAbort = () => {
-      controller.abort();
-      combinedController.abort();
-    };
-    externalSignal.addEventListener('abort', onAbort);
-    try {
-      const response = await fetch(url, {
-        ...options,
-        signal: combinedController.signal,
-      });
-      clearTimeout(timeoutId);
-      externalSignal.removeEventListener('abort', onAbort);
-      return response;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      externalSignal.removeEventListener('abort', onAbort);
-      throw error;
-    }
-  }
+  const res = await fetch(url, {
+    ...options,
+    signal: externalSignal || controller.signal,
+  });
 
+  clearTimeout(timeoutId);
+  return res;
+}
+
+async function safeJson<T>(response: Response): Promise<T | null> {
+  const text = await response.text();
+  if (!text.trim()) {
+    return null;
+  }
   try {
-    const response = await fetch(url, {
-      ...options,
-      signal,
-    });
-    clearTimeout(timeoutId);
-    return response;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    throw error;
+    return JSON.parse(text) as T;
+  } catch {
+    console.error('Failed to parse JSON response:', text.slice(0, 100));
+    return null;
   }
 }
 
 export async function fetchDocuments(signal?: AbortSignal): Promise<{ documents: Document[] }> {
   const res = await fetchWithRetry(`${API_BASE}/documents`, {}, 10000, signal);
-  return res.json();
+  const data = await safeJson<{ documents: Document[] }>(res);
+  if (!data) {
+    return { documents: [] };
+  }
+  return data;
 }
 
-export async function fetchDocument(docId: number, signal?: AbortSignal): Promise<Document> {
+export async function fetchDocument(docId: number, signal?: AbortSignal): Promise<Document | null> {
   const res = await fetchWithRetry(`${API_BASE}/documents/${docId}`, {}, 10000, signal);
-  return res.json();
+  const data = await safeJson<Document>(res);
+  return data;
 }
 
 export async function fetchPreview(docId: number): Promise<Blob> {
@@ -110,7 +109,11 @@ export async function uploadDocument(file: File): Promise<{ id: number; filename
     method: 'POST',
     body: formData,
   }, 60000);
-  return res.json();
+  const data = await safeJson<{ id: number; filename: string; duplicate?: boolean; duplicate_type?: string }>(res);
+  if (!data) {
+    throw new Error('Upload failed');
+  }
+  return data;
 }
 
 export async function updateDocument(docId: number, data: Record<string, unknown>): Promise<void> {
@@ -127,8 +130,8 @@ export async function deleteDocument(docId: number): Promise<void> {
 
 export async function toggleFavorite(docId: number): Promise<number> {
   const res = await fetchWithRetry(`${API_BASE}/documents/${docId}/favorite`, { method: 'POST' });
-  const data = await res.json();
-  return data.favorite;
+  const data = await safeJson<{ favorite: number }>(res);
+  return data?.favorite ?? 0;
 }
 
 export async function retryOCR(docId: number): Promise<void> {
@@ -141,12 +144,20 @@ export async function retryLLM(docId: number): Promise<void> {
 
 export async function cleanupDocuments(): Promise<{ success: boolean; deleted_count: number }> {
   const res = await fetchWithRetry(`${API_BASE}/documents/cleanup`, { method: 'POST' });
-  return res.json();
+  const data = await safeJson<{ success: boolean; deleted_count: number }>(res);
+  if (!data) {
+    return { success: false, deleted_count: 0 };
+  }
+  return data;
 }
 
 export async function fetchLocations(signal?: AbortSignal): Promise<{ locations: Location[] }> {
   const res = await fetchWithRetry(`${API_BASE}/locations`, {}, 10000, signal);
-  return res.json();
+  const data = await safeJson<{ locations: Location[] }>(res);
+  if (!data) {
+    return { locations: [] };
+  }
+  return data;
 }
 
 export async function addLocation(name: string): Promise<{ success: boolean; location: Location }> {
@@ -155,7 +166,11 @@ export async function addLocation(name: string): Promise<{ success: boolean; loc
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
   });
-  return res.json();
+  const data = await safeJson<{ success: boolean; location: Location }>(res);
+  if (!data) {
+    throw new Error('Failed to add location');
+  }
+  return data;
 }
 
 export async function deleteLocation(id: number): Promise<void> {
@@ -180,7 +195,11 @@ export async function reorderLocations(ids: number[]): Promise<void> {
 
 export async function fetchModels(): Promise<{ models: string[] }> {
   const res = await fetchWithRetry(`${API_BASE}/models?t=${Date.now()}`);
-  return res.json();
+  const data = await safeJson<{ models: string[] }>(res);
+  if (!data) {
+    return { models: [] };
+  }
+  return data;
 }
 
 export async function addModel(name: string): Promise<{ success: boolean; error?: string }> {
@@ -189,7 +208,11 @@ export async function addModel(name: string): Promise<{ success: boolean; error?
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
   });
-  return res.json();
+  const data = await safeJson<{ success: boolean; error?: string }>(res);
+  if (!data) {
+    throw new Error('Failed to add model');
+  }
+  return data;
 }
 
 export async function deleteModel(name: string): Promise<void> {
@@ -216,7 +239,11 @@ export interface StationDurationData {
 
 export async function fetchTravelTimes(signal?: AbortSignal): Promise<{ travel_times: StationDurationData[] }> {
   const res = await fetchWithRetry(`${API_BASE}/travel-times?t=${Date.now()}`, {}, 30000, signal);
-  return res.json();
+  const data = await safeJson<{ travel_times: StationDurationData[] }>(res);
+  if (!data) {
+    return { travel_times: [] };
+  }
+  return data;
 }
 
 export async function saveTravelTimes(data: Record<string, Record<string, number>>, locations: { id: number; name: string }[]): Promise<void> {

@@ -6,24 +6,15 @@ from pathlib import Path
 import fitz
 import tomli
 import tomli_w
-from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, File, HTTPException, UploadFile, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp
 from PIL import Image
 
 from src.models import Database
 from src.processor import DocumentProcessor
-
-from src.geolocation import GeoIPManager
-from src.security import (
-    IPBlacklistManager,
-    IPBlacklistMiddleware,
-    PathTraversalMiddleware,
-    RateLimiter,
-    RateLimitMiddleware,
-    SecurityHeadersMiddleware,
-)
 
 
 app = FastAPI(title="Housing OCR")
@@ -35,7 +26,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 def load_config():
     config_path = PROJECT_ROOT / "config.toml"
     if not config_path.exists():
-        raise FileNotFoundError("配置文件 config.toml 不存在,请先运行 'just setup'")
+        raise FileNotFoundError("配置文件 config.toml 不存在，请先运行 'just setup'")
     with open(config_path, "rb") as f:
         return tomli.load(f)
 
@@ -48,58 +39,36 @@ def save_config(config: dict):
 
 config = load_config()
 
-security_config = config.get("security", {})
+app_config = config.get("app", {})
+access_token = app_config.get("access_token")
 
-blacklist_manager = IPBlacklistManager(
-    auto_ban_threshold=security_config.get("auto_ban_threshold", 3)
+print(
+    f"[CONFIG] Loaded access_token: {access_token[:10]}..." if access_token else "None"
 )
 
-rate_limiter = RateLimiter(
-    requests_per_minute=security_config.get("requests_per_minute", 60)
-)
 
-geoip_manager = GeoIPManager(
-    database_path=security_config.get("geoip_database_path"),
-    allowed_countries=security_config.get("allowed_countries", ["JP"]),
-)
+class TokenAuthMiddleware(BaseHTTPMiddleware):
+    """Middleware to verify access token via query parameter."""
 
-if security_config.get("enable_cors", True):
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=security_config.get("allow_origins", ["*"]),
-        allow_methods=security_config.get("allow_methods", ["*"]),
-        allow_headers=security_config.get("allow_headers", ["*"]),
-    )
+    def __init__(self, app: ASGIApp, access_token: str):
+        super().__init__(app)
+        self.access_token = access_token
 
-if security_config.get("enable_security_headers", True):
-    app.add_middleware(
-        SecurityHeadersMiddleware,
-        enable_hsts=security_config.get("enable_hsts", True),
-        enable_csp=security_config.get("enable_csp", True),
-    )
+    async def dispatch(self, request: Request, call_next):
+        """Check for valid token in query parameters."""
+        token = request.query_params.get("token")
 
-if security_config.get("enable_rate_limiting", True):
-    app.add_middleware(RateLimitMiddleware, rate_limiter=rate_limiter)
+        if token != self.access_token:
+            print(f"[AUTH] Blocked: token={token}")
+            return Response(status_code=200)
 
-if security_config.get("enable_ip_blacklist", True):
-    app.add_middleware(IPBlacklistMiddleware, blacklist_manager=blacklist_manager)
+        print(f"[AUTH] Allowed: token={token}")
+        response = await call_next(request)
+        return response
 
-if security_config.get("enable_ip_geolocation", True):
-    from src.geolocation import IPWhitelistMiddleware
 
-    app.add_middleware(
-        IPWhitelistMiddleware,
-        geoip_manager=geoip_manager,
-        enable_geolocation=security_config.get("enable_ip_geolocation", False),
-    )
+app.add_middleware(TokenAuthMiddleware, access_token=access_token)
 
-if security_config.get("enable_path_traversal_protection", True):
-    app.add_middleware(
-        PathTraversalMiddleware,
-        blacklist_manager=blacklist_manager
-        if security_config.get("auto_ban_suspicious_ips", True)
-        else None,
-    )
 
 db = Database(config["app"]["db_path"])
 

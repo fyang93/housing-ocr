@@ -107,15 +107,29 @@ class Database:
             conn.execute("ALTER TABLE documents ADD COLUMN original_filename TEXT")
         except sqlite3.OperationalError:
             pass
+        try:
+            conn.execute(
+                "ALTER TABLE documents ADD COLUMN sort_order INTEGER DEFAULT 0"
+            )
+        except sqlite3.OperationalError:
+            pass
+        # Migrate existing documents: set sort_order to upload_time timestamp
+        conn.execute(
+            "UPDATE documents SET sort_order = CAST((julianday(upload_time) - 2440587.5) * 86400000 AS INTEGER) WHERE sort_order = 0"
+        )
         conn.commit()
         conn.close()
 
     def create_document(self, filename: str, original_filename: str = None) -> int:
+        import time
+
         conn = self._get_connection()
         cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        sort_order = int(time.time() * 1000)
         cursor.execute(
-            "INSERT INTO documents (filename, original_filename, upload_time, auto_llm) VALUES (?, ?, ?, ?)",
-            (filename, original_filename, datetime.now().isoformat(), 1),
+            "INSERT INTO documents (filename, original_filename, upload_time, auto_llm, sort_order) VALUES (?, ?, ?, ?, ?)",
+            (filename, original_filename, now, 1, sort_order),
         )
         doc_id = cursor.lastrowid
         conn.commit()
@@ -150,9 +164,7 @@ class Database:
     def get_all_documents(self) -> list:
         conn = self._get_connection()
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT * FROM documents ORDER BY favorite DESC, upload_time DESC"
-        )
+        cursor.execute("SELECT * FROM documents ORDER BY sort_order ASC")
         rows = cursor.fetchall()
         conn.close()
         docs = []
@@ -217,28 +229,35 @@ class Database:
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT * FROM documents WHERE (ocr_status = 'pending' OR "
-            "(ocr_status = 'done' AND llm_status = 'pending') OR "
-            "(ocr_status = 'processing' AND retry_count < 5) OR "
-            "(llm_status = 'processing' AND retry_count < 5) OR "
-            "(llm_status = 'failed')) "
-            "ORDER BY favorite DESC, upload_time ASC LIMIT 10"
+            "SELECT * FROM documents WHERE (ocr_status = 'pending' OR ocr_status = 'processing' OR ocr_status = 'failed' "
+            "OR (ocr_status = 'done' AND (llm_status = 'pending' OR llm_status = 'processing' OR llm_status = 'failed'))) "
+            "ORDER BY upload_time DESC LIMIT 10"
         )
         rows = cursor.fetchall()
         conn.close()
         return [dict(row) for row in rows]
 
     def toggle_favorite(self, doc_id: int) -> int:
+        import time
+
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT favorite FROM documents WHERE id = ?", (doc_id,))
         row = cursor.fetchone()
         if row:
             new_favorite = 1 if row["favorite"] == 0 else 0
-            conn.execute(
-                "UPDATE documents SET favorite = ? WHERE id = ?",
-                (new_favorite, doc_id),
-            )
+            if new_favorite == 1:
+                # Favorite: set sort_order to favorite time
+                conn.execute(
+                    "UPDATE documents SET favorite = ?, sort_order = ? WHERE id = ?",
+                    (new_favorite, int(time.time() * 1000), doc_id),
+                )
+            else:
+                # Unfavorite: keep sort_order unchanged (position stays the same)
+                conn.execute(
+                    "UPDATE documents SET favorite = ? WHERE id = ?",
+                    (new_favorite, doc_id),
+                )
             conn.commit()
             conn.close()
             return new_favorite

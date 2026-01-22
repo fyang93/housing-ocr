@@ -8,9 +8,11 @@
 # 1. 安装依赖
 just sync
 
-# 2. 配置 API Key
+# 2. 配置
 cp config.example.toml config.toml
-# 编辑 config.toml，设置 OpenRouter API Key
+# 编辑 config.toml：
+#   - 设置 OpenRouter API Key
+#   - 生成安全访问令牌：just token（自动更新 config.toml）
 
 # 3. 启动服务 (两个终端)
 # 终端 1: 启动 OCR 服务
@@ -18,10 +20,10 @@ just ocr
 
 # 终端 2: 选择以下任一模式
 # 开发模式（推荐）：前后端同时运行，热重载
-just dev    # 访问 http://localhost:8080
+just dev    # 访问 http://localhost:8080?token=your-access-token
 
 # 生产模式：先构建前端，再启动后端（使用静态文件）
-just build && just run    # 访问 http://localhost:8080
+just build && just run    # 访问 http://localhost:8080?token=your-access-token
 ```
 
 ## 功能特性
@@ -55,10 +57,17 @@ endpoint = "http://localhost:8000/v1"
 model = "rednote-hilab/dots.ocr"
 
 [app]
+host = "0.0.0.0"
 port = 8080  # 生产模式端口（just run）
 upload_dir = "./uploads"
 db_path = "./data.db"
+access_token = "your-secret-token-here"  # 设置为强密码
 ```
+
+**访问方式**：
+- 所有请求必须在 URL 中包含 `?token=your-access-token`
+- 例如：`http://localhost:8080?token=your-secret-token-here`
+- 没有 token 的请求将返回空响应（防止扫描）
 
 **端口说明**：
 - `just dev`：前端 8080，后端 8081（开发模式）
@@ -102,10 +111,7 @@ housing-ocr/
 │   ├── dist/               # 构建产物
 │   ├── package.json
 │   └── vite.config.ts
-├── scripts/                # 实用脚本
-│   └── update_geoip_database.py  # GeoIP2 数据库更新脚本
 ├── data/                   # 数据目录
-│   └── GeoLite2-Country.mmdb     # GeoIP2 数据库（可选）
 ├── config.example.toml     # 配置示例
 ├── justfile                # 命令行任务
 └── pyproject.toml
@@ -116,105 +122,34 @@ housing-ocr/
 ```bash
 just default     # 显示所有可用命令
 just sync        # 安装 Python 依赖
+just token       # 生成安全访问令牌（自动更新 config.toml）
 just ocr         # 启动 vLLM OCR 模型服务（需要 GPU）
 just run         # 启动后端 API 服务（生产模式，自动使用已构建的前端静态文件，端口 8080）
 just build       # 构建前端为静态文件（部署前使用）
 just dev         # 启动完整开发环境：前端开发服务器 (http://localhost:8080) + 后端 (http://localhost:8081)
-just geoip       # 更新 GeoIP2 数据库
+```
+
+### 安全令牌生成
+
+运行 `just token` 命令生成加密安全的访问令牌：
+
+```bash
+just token
+```
+
+**安全特性**：
+- 使用 Python `secrets` 模块（加密安全）
+- 8 字符长度（包含大小写字母、数字和特殊字符）
+- 不可预测，抵抗字典攻击和暴力破解
+- 自动更新 `config.toml`
+- 显示完整的访问 URL（带 token）
+
+**示例输出**：
+```
+Generated token (8 characters):
+  aB3!xK9p
 ```
 
 ## License
 
 MIT
-
-## 安全
-
-应用包含完整的安全功能：
-
-### IP地理位置过滤（可配置）
-- 使用MaxMind GeoIP2数据库检测客户端IP所在国家
-- 可配置允许的国家列表（ISO 3166-1 alpha-2格式）
-- 下载地址：https://dev.maxmind.com/geoip/geolite2-free-geolocation-data
-- 更新数据库：`just geoip`
-- 放置在：`data/` 目录
-- 或在 `config.toml` 中配置自定义路径和允许的国家
-- 如果数据库不可用，则允许所有IP（安全回退）
-
-**配置示例**：
-```toml
-[security]
-# 允许的国家代码列表（ISO 3166-1 alpha-2）
-allowed_countries = ["JP"]  # 仅日本
-allowed_countries = ["JP", "US", "CN", "KR"]  # 多个国家
-allowed_countries = []  # 允许所有国家（禁用地理过滤）
-allowed_countries = ["*"]  # 允许所有国家
-```
-
-### 路径遍历防护
-- 检测并阻止包含路径遍历模式的请求（`../`、`..\\`、URL编码变体）
-- 记录可疑尝试用于黑名单
-- 自动对具有可疑活动的IP进行黑名单处理
-
-### IP黑名单
-- 手动IP黑名单
-- 超过可疑活动阈值后自动封禁（默认：3次尝试）
-- 可配置封禁时长（默认：24小时）
-- 内存持久化存储
-
-### 速率限制
-- 每IP每分钟限制请求数（默认：60请求/分钟）
-- 内存滑动窗口算法
-- 超过限制时返回HTTP 429
-
-### 安全头
-- X-Content-Type-Options: nosniff
-- X-Frame-Options: DENY
-- X-XSS-Protection: 1; mode=block
-- Referrer-Policy: strict-origin-when-cross-origin
-- Content-Security-Policy: 对资源加载的严格控制
-- Strict-Transport-Security (HSTS)：强制HTTPS（使用HTTPS时）
-- Permissions-Policy：控制浏览器功能
-
-### 配置
-
-所有安全功能可在 `config.toml` 中配置：
-
-```toml
-[security]
-# Enable security features
-enable_security_headers = true
-enable_hsts = true
-enable_csp = true
-
-# IP geolocation filtering
-enable_ip_geolocation = true
-geoip_database_path = "./data/GeoLite2-Country.mmdb"
-
-# Allowed country codes (ISO 3166-1 alpha-2)
-# Examples:
-#   ["JP"] - Japan only
-#   ["JP", "US", "CN", "KR"] - Multiple countries
-#   [] or ["*"] - Allow all countries (disable geolocation)
-allowed_countries = ["JP"]
-
-# Path traversal protection
-enable_path_traversal_protection = true
-
-# IP blacklist
-enable_ip_blacklist = true
-auto_ban_suspicious_ips = true
-auto_ban_threshold = 3
-ban_duration = 86400
-
-# Rate limiting
-enable_rate_limiting = true
-requests_per_minute = 60
-
-# CORS
-enable_cors = true
-allow_origins = ["*"]
-allow_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-allow_headers = ["*"]
-```
-
-生产环境请将 `allow_origins` 改为特定域名而非 `"*"`。
