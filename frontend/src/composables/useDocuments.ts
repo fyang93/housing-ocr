@@ -31,6 +31,7 @@ export function useDocuments() {
       const data = await fetchDocuments();
       documents.value = data.documents;
       applyFilters();
+      startPollingPendingDocuments();
     } catch (e) {
       error.value = e instanceof Error ? e.message : '加载失败';
     } finally {
@@ -45,14 +46,14 @@ export function useDocuments() {
       const index = documents.value.findIndex(d => d.id === docId);
       if (index !== -1) {
         documents.value.splice(index, 1, doc);
-        applyFilters();
+        applyFilters(false);
       }
     } catch (e) {
       console.error('更新文档失败:', e);
     }
   };
 
-  const applyFilters = () => {
+  const applyFilters = (resetPage: boolean = true) => {
     filteredDocuments.value = documents.value.filter((doc) => {
       const props = doc.properties || {};
 
@@ -85,7 +86,13 @@ export function useDocuments() {
       return matchSearch && matchPrice && matchArea && matchWalking && matchType && matchRoom && matchPet && matchFavorite;
     });
 
-    currentPage.value = 1;
+    const newTotalPages = Math.ceil(filteredDocuments.value.length / ITEMS_PER_PAGE);
+
+    if (resetPage) {
+      currentPage.value = 1;
+    } else if (currentPage.value > newTotalPages && newTotalPages > 0) {
+      currentPage.value = newTotalPages;
+    }
   };
 
   const sortedDocuments = computed(() => {
@@ -218,7 +225,7 @@ export function useDocuments() {
             activeIntervals.delete(checkInterval);
           }
           attempts++;
-        }, 2000);
+        }, 3000);
         activeIntervals.add(checkInterval);
       }
     });
@@ -226,7 +233,6 @@ export function useDocuments() {
 
   onMounted(() => {
     loadDocuments();
-    startPollingPendingDocuments();
   });
 
   onBeforeUnmount(() => {

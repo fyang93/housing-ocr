@@ -43,6 +43,16 @@ class DocumentProcessor:
             print(
                 f"[ID:{doc_id}] 当前状态 - OCR: {doc['ocr_status']}, LLM: {doc['llm_status']}"
             )
+            # Reset stuck processing states
+            if doc["ocr_status"] == "processing":
+                print(f"[ID:{doc_id}] 检测到OCR处理中状态，重置为pending重试")
+                self.db.update_ocr_status(doc_id, "pending")
+                doc["ocr_status"] = "pending"
+            if doc["llm_status"] == "processing":
+                print(f"[ID:{doc_id}] 检测到LLM处理中状态，重置为pending重试")
+                self.db.update_llm_status(doc_id, "pending")
+                doc["llm_status"] = "pending"
+
             if doc["ocr_status"] in ["pending", "processing"]:
                 if doc["ocr_status"] == "pending":
                     print(
@@ -57,8 +67,8 @@ class DocumentProcessor:
 
                 try:
                     print(f"[ID:{doc_id}] 调用OCR API...")
-                    ocr_text = await asyncio.to_thread(
-                        self.ocr_client.extract_text, str(image_path), doc_id
+                    ocr_text = await self.ocr_client.extract_text(
+                        str(image_path), doc_id
                     )
                     print(f"[ID:{doc_id}] OCR API调用完成")
 
@@ -94,23 +104,24 @@ class DocumentProcessor:
                     f"[ID:{doc_id}] {self._get_display_filename(current_doc)} 开始LLM提取..."
                 )
                 self.db.update_llm_status(doc_id, "processing")
+                print(f"[ID:{doc_id}] llm_status已更新为processing，准备调用LLM...")
 
-                properties = await asyncio.to_thread(
-                    self.llm_extractor.extract_properties, ocr_text, doc_id
+                properties = await self.llm_extractor.extract_properties(
+                    ocr_text, doc_id
                 )
+                print(f"[ID:{doc_id}] LLM调用完成，开始更新数据库...")
                 extracted_model = properties.pop("_extracted_by_model", None)
                 self.db.update_llm_status(doc_id, "done", properties, extracted_model)
                 print(f"[ID:{doc_id}] LLM提取完成 (模型: {extracted_model})")
 
         except Exception as e:
-            current_doc = self.db.get_document(doc_id)
-            display_filename = (
-                self._get_display_filename(current_doc) if current_doc else "unknown"
-            )
-            print(f"[ID:{doc_id}] {display_filename} 处理失败: {str(e)}")
             import traceback
 
+            print(f"[ID:{doc_id}] ==========================================")
+            print(f"[ID:{doc_id}] 处理失败: {str(e)}")
+            print(f"[ID:{doc_id}] 错误类型: {type(e).__name__}")
             traceback.print_exc()
+            print(f"[ID:{doc_id}] ==========================================")
             self.db.increment_retry(doc_id)
 
             current_doc = self.db.get_document(doc_id)
@@ -175,12 +186,11 @@ class DocumentProcessor:
                 traceback.print_exc()
                 await asyncio.sleep(1)
 
-        # Gracefully shutdown: wait for all active tasks to complete
         print("[PROCESSOR] 接收到关闭信号，等待任务完成...")
         if active_tasks:
             await asyncio.wait(active_tasks)
         print("[PROCESSOR] 所有任务已完成，处理器已关闭")
 
-    def close(self):
-        self.ocr_client.close()
-        self.llm_extractor.close()
+    async def close(self):
+        await self.ocr_client.close()
+        await self.llm_extractor.close()

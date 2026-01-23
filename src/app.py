@@ -6,7 +6,7 @@ from pathlib import Path
 import fitz
 import tomli
 import tomli_w
-from fastapi import FastAPI, File, HTTPException, UploadFile, Request
+from fastapi import FastAPI, File, HTTPException, UploadFile, Request, BackgroundTasks
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -116,7 +116,9 @@ async def root():
 
 
 @app.post("/api/upload")
-async def upload_document(file: UploadFile = File(...)):
+async def upload_document(
+    file: UploadFile = File(...), background_tasks: BackgroundTasks = None
+):
     upload_dir = Path(config["app"]["upload_dir"])
     upload_dir.mkdir(exist_ok=True)
 
@@ -143,29 +145,30 @@ async def upload_document(file: UploadFile = File(...)):
     saved_filename = f"{file_hash}{file_ext}"
     file_path = upload_dir / saved_filename
 
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
     original_filename = file.filename
     doc_id = db.create_document(saved_filename, original_filename)
     db.update_file_hash(doc_id, file_hash)
 
-    from PIL import Image
+    async def save_file_and_extract_dimensions():
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-    try:
-        if file_path.suffix.lower() == ".pdf":
-            with fitz.open(file_path) as doc_obj:
-                page = doc_obj[0]
-                mat = fitz.Matrix(2.0, 2.0)
-                pm = page.get_pixmap(matrix=mat, alpha=False)
-                width = pm.width
-                height = pm.height
-        else:
-            with Image.open(file_path) as img:
-                width, height = img.size
-        db.update_image_dimensions(doc_id, width, height)
-    except Exception as e:
-        print(f"Error getting image dimensions: {e}")
+        try:
+            if file_path.suffix.lower() == ".pdf":
+                with fitz.open(file_path) as doc_obj:
+                    page = doc_obj[0]
+                    mat = fitz.Matrix(2.0, 2.0)
+                    pm = page.get_pixmap(matrix=mat, alpha=False)
+                    width = pm.width
+                    height = pm.height
+            else:
+                with Image.open(file_path) as img:
+                    width, height = img.size
+            db.update_image_dimensions(doc_id, width, height)
+        except Exception as e:
+            print(f"Error getting image dimensions: {e}")
+
+    background_tasks.add_task(save_file_and_extract_dimensions)
 
     return JSONResponse(
         content={"id": doc_id, "filename": original_filename, "duplicate": False}
@@ -438,10 +441,10 @@ async def preview_document(doc_id: int, thumbnail: bool = False):
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Gracefully shutdown the processor and wait for tasks to complete."""
+    """Gracefully shutdown processor and wait for tasks to complete."""
     processor._shutdown_event.set()
-    await asyncio.sleep(0.5)  # Give the loop time to exit
-    processor.close()
+    await asyncio.sleep(0.5)
+    await processor.close()
 
 
 @app.get("/api/locations")

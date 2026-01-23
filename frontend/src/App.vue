@@ -218,7 +218,7 @@ const onDelete = async (doc: Document) => {
   const docIndex = documents.value.findIndex(d => d.id === doc.id);
   if (docIndex !== -1) {
     documents.value.splice(docIndex, 1);
-    applyFilters(); // 更新过滤后的文档列表
+    applyFilters(false); // 更新过滤后的文档列表
   }
 
   try {
@@ -227,7 +227,7 @@ const onDelete = async (doc: Document) => {
     // 请求失败：恢复文档到列表中
     if (docIndex !== -1) {
       documents.value.splice(docIndex, 0, doc);
-      applyFilters(); // 重新应用过滤器
+      applyFilters(false); // 重新应用过滤器
     }
     console.error('删除文档失败:', error);
     alert('删除文档失败，请重试');
@@ -256,7 +256,7 @@ const pollDocumentStatus = (docId: number) => {
       activeIntervals.delete(checkInterval);
     }
     attempts++;
-  }, 2000);
+      }, 3000);
   activeIntervals.add(checkInterval);
 };
 
@@ -270,7 +270,7 @@ const onDetailDelete = async (docId: number) => {
   const doc = docIndex !== -1 ? documents.value[docIndex] : null;
   if (docIndex !== -1) {
     documents.value.splice(docIndex, 1);
-    applyFilters(); // 更新过滤后的文档列表
+    applyFilters(false); // 更新过滤后的文档列表
   }
 
   try {
@@ -280,7 +280,7 @@ const onDetailDelete = async (docId: number) => {
     // 请求失败：恢复文档到列表中
     if (doc && docIndex !== -1) {
       documents.value.splice(docIndex, 0, doc);
-      applyFilters(); // 重新应用过滤器
+      applyFilters(false); // 重新应用过滤器
     }
     console.error('删除文档失败:', error);
     alert('删除文档失败，请重试');
@@ -309,7 +309,7 @@ const onDetailRetryOCR = async (docId: number) => {
         retryLoading.value = false;
       }
       attempts++;
-    }, 2000);
+        }, 3000);
     activeIntervals.add(checkInterval);
   } catch (error) {
     console.error('重试OCR失败:', error);
@@ -340,7 +340,7 @@ const onDetailRetryLLM = async (docId: number) => {
         retryLoading.value = false;
       }
       attempts++;
-    }, 2000);
+        }, 3000);
     activeIntervals.add(checkInterval);
   } catch (error) {
     console.error('重试LLM失败:', error);
@@ -364,6 +364,8 @@ onMounted(() => {
 watch(currentPage, () => {
   if (!loading.value) {
     setTimeout(() => preloadImages(), 100);
+    // Scroll to top of container when page changes
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 });
 
@@ -785,16 +787,60 @@ watch(filters, () => applyFilters(), { deep: true });</script>
           </button>
         </span>
       </div>
+      </div>
+
+    <!-- Pagination at top -->
+    <div v-if="!loading && totalPages > 1" class="mb-4 flex items-center justify-center gap-2">
+      <button
+        @click="goToPage(currentPage - 1)"
+        :disabled="currentPage === 1"
+        class="w-9 h-9 rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+      >
+        <ChevronLeft class="w-4 h-4" />
+      </button>
+      <span class="px-3 py-1.5 text-sm text-gray-500">
+        {{ (currentPage - 1) * 12 + 1 }}-{{ Math.min(currentPage * 12, sortedDocuments.length) }} / {{ sortedDocuments.length }}
+      </span>
+      <button
+        v-for="page in pageNumbers"
+        :key="'top-' + page"
+        @click="goToPage(page as number)"
+        :disabled="page === '...'"
+        :class="[
+          'w-9 h-9 rounded-lg flex items-center justify-center text-sm font-medium transition',
+          page === currentPage ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-100',
+          page === '...' ? 'cursor-default' : ''
+        ]"
+      >
+        {{ page }}
+      </button>
+      <button
+        @click="goToPage(currentPage + 1)"
+        :disabled="currentPage === totalPages"
+        class="w-9 h-9 rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+      >
+        <ChevronRight class="w-4 h-4" />
+      </button>
+      <input
+        v-model.number="jumpPageInput"
+        type="number"
+        min="1"
+        :max="totalPages"
+        @keydown.enter="() => { if (jumpPageInput) goToPage(jumpPageInput); jumpPageInput = null; }"
+        placeholder="页"
+        class="w-14 px-2 py-1.5 text-sm border border-gray-200 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
     </div>
 
-    <div class="mb-4 flex justify-between items-center text-sm text-gray-600">
-      <template v-if="loading">
-        <div class="skeleton-shimmer h-5 w-20 rounded skeleton-pulse"></div>
-      </template>
-      <template v-else>
-        <span>共 {{ documents.length }} 个房产</span>
-        <span v-if="sortedDocuments.length < documents.length" class="text-gray-500">显示 {{ sortedDocuments.length }} 个结果</span>
-      </template>
+    <!-- Pagination skeleton during loading -->
+    <div v-if="loading" class="mb-4 flex items-center justify-center gap-2">
+      <div class="w-9 h-9 rounded-lg skeleton-shimmer skeleton-pulse"></div>
+      <div class="skeleton-shimmer h-7 w-24 rounded skeleton-pulse"></div>
+      <div class="w-9 h-9 rounded-lg skeleton-shimmer skeleton-pulse"></div>
+      <div class="w-9 h-9 rounded-lg skeleton-shimmer skeleton-pulse"></div>
+      <div class="w-9 h-9 rounded-lg skeleton-shimmer skeleton-pulse"></div>
+      <div class="w-9 h-9 rounded-lg skeleton-shimmer skeleton-pulse"></div>
+      <div class="skeleton-shimmer h-7 w-14 rounded skeleton-pulse"></div>
     </div>
 
     <div v-if="loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">

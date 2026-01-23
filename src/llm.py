@@ -53,9 +53,14 @@ class LLMExtractor:
         self.base_url = base_url
         self.models = models
         self.update_config_callback = update_config_callback
-        self.client = httpx.Client(timeout=120.0)
+        self._client: httpx.AsyncClient | None = None
         self.rate_limit_cooldown = 60
         self.model_429_times = {}
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(timeout=120.0)
+        return self._client
 
     def _extract_json(self, text: str) -> dict:
         start = text.find("{")
@@ -65,7 +70,7 @@ class LLMExtractor:
             return json.loads(json_str)
         raise ValueError("无法从响应中提取JSON")
 
-    def extract_properties(
+    async def extract_properties(
         self, ocr_text: str, doc_id: Optional[int] = None
     ) -> Dict[str, Any]:
         doc_tag = f"[ID:{doc_id}]" if doc_id else ""
@@ -98,7 +103,7 @@ Fields to extract:
 17. repair_fee: Monthly repair fund in 円
 18. exclusive_area: Exclusive area in m²
 19. balcony_area: Balcony area in m² (if available)
-20. stations: Array of all nearest stations with WALKING distance only. Each station object contains: name (station name), lines (array of train line names), walking_minutes (walking time in minutes). If same station has multiple lines, combine them into ONE station object with multiple lines in the array.
+20. stations: Array of all nearest stations with WALKING distance only. Each station object contains: name (station name), lines (array of train line names including company name like "JR山手線" or "東京メトロ銀座線"), walking_minutes (walking time in minutes). If same station has multiple lines, combine them into ONE station object with multiple lines in array.
 21. parking: Parking availability
 22. pet_policy: Pet policy
 23. corner_room: Whether it's a corner room (角部屋). Set to null if not mentioned
@@ -109,42 +114,43 @@ Important:
 - **stations: ONLY include stations with WALKING distance (徒歩). EXCLUDE any stations with 直通/乗換/バス/電車 or other non-walking transport methods**
 - For stations, look for keywords like "徒歩〇分" or "歩〇分". Common patterns: "駅名 徒歩5分", "〇〇駅 歩5分"
 - If distance is described as "直通5分", "乗換5分", "バス5分" etc., DO NOT include it in stations array
-- **CRITICAL: If the same station appears with multiple train lines, merge them into ONE station object with lines as an array. Do NOT create duplicate station entries.**
-- stations should be an array of objects with lines as array, e.g., [{{"name": "渋谷", "lines": ["山手線", "銀座線", "半蔵門線"], "walking_minutes": 5}}]
+- **For train lines: Include the full line name with company prefix (e.g., "JR京浜東北線", "東京メトロ南北線", "都営三田線") if available.**
+- **CRITICAL: If same station appears with multiple train lines, merge them into ONE station object with lines as an array. Do NOT create duplicate station entries.**
+- stations should be an array of objects with lines as array, e.g., [{{"name": "渋谷", "lines": ["JR山手線", "東京メトロ銀座線", "東京メトロ半蔵門線"], "walking_minutes": 5}}]
+- **MANDATORY: Before outputting JSON, check the stations array for duplicate station names and merge them.**
 - Return ONLY JSON, no other text
 - Ensure valid JSON format
 
-Example response:
-{{
-    "property_type": "マンション",
-    "property_name": "〇〇コーポ",
-    "address": "東京都渋谷区円山町28-14 305",
-    "price": 5800,
-    "exclusive_area": 65.8,
-    "room_layout": "2LDK",
-    "build_year": 2018,
-    "stations": [
-        {{"name": "渋谷", "lines": ["山手線", "銀座線", "半蔵門線"], "walking_minutes": 5}},
-        {{"name": "表参道", "lines": ["銀座線", "千代田線"], "walking_minutes": 8}},
-        {{"name": "原宿", "lines": ["山手線"], "walking_minutes": 10}}
-    ],
-    "parking": "空無 (月額23,000円/台)"
-}}
+ Example response:
+ {{
+     "property_type": "マンション",
+     "property_name": "〇〇コーポ",
+     "address": "東京都渋谷区円山町28-14 305",
+     "price": 5800,
+     "exclusive_area": 65.8,
+     "room_layout": "2LDK",
+     "build_year": 2018,
+     "stations": [
+         {{"name": "渋谷", "lines": ["JR山手線", "東京メトロ銀座線", "東京メトロ半蔵門線"], "walking_minutes": 5}},
+         {{"name": "表参道", "lines": ["東京メトロ銀座線", "東京メトロ千代田線"], "walking_minutes": 8}},
+         {{"name": "原宿", "lines": ["JR山手線"], "walking_minutes": 10}}
+     ],
+     "parking": "空無 (月額23,000円/台)"
+ }}
 
-Example of what NOT to include in stations:
-- "池袋 直通5分" ❌ (this is direct train connection, not walking)
-- "新宿 バス10分" ❌ (this is bus, not walking)
-- "渋谷 乗換5分" ❌ (this is transfer time, not walking)
-- "表参道 徒歩8分" ✅ (this is walking distance, INCLUDE this)
+ Example of what NOT to include in stations:
+ - "池袋 直通5分" ❌ (this is direct train connection, not walking)
+ - "新宿 バス10分" ❌ (this is bus, not walking)
+ - "渋谷 乗換5分" ❌ (this is transfer time, not walking)
+ - "表参道 徒歩8分" ✅ (this is walking distance, INCLUDE this)
 
-Example of correct station merging:
-Input text mentions:
-- "渋谷駅(山手線) 徒歩5分"
-- "渋谷駅(銀座線) 徒歩5分"
-- "渋谷駅(半蔵門線) 徒歩5分"
+ Example of correct station merging with full line names:
+ Input text mentions:
+ - "王子駅(JR京浜東北線) 徒歩5分"
+ - "王子駅(東京メトロ南北線) 徒歩5分"
 
-Correct output:
-{{"name": "渋谷", "lines": ["山手線", "銀座線", "半蔵門線"], "walking_minutes": 5}}
+ Correct output:
+ {{"name": "王子", "lines": ["JR京浜東北線", "東京メトロ南北線"], "walking_minutes": 5}}
 
 Incorrect output (DO NOT do this):
 [
@@ -153,7 +159,9 @@ Incorrect output (DO NOT do this):
     {{"name": "渋谷", "lines": ["半蔵門線"], "walking_minutes": 5}}
 ]"""
 
+        client = await self._get_client()
         for model in self.models[:]:
+            print(f"{doc_tag} 尝试模型: {model}")
             if model in self.model_429_times:
                 last_429 = self.model_429_times[model]
                 if time.time() - last_429 < self.rate_limit_cooldown:
@@ -169,7 +177,8 @@ Incorrect output (DO NOT do this):
                     "max_tokens": 4096,
                 }
 
-                response = self.client.post(
+                print(f"{doc_tag} 发送请求到 {model}...")
+                response = await client.post(
                     self.base_url,
                     json=payload,
                     headers={
@@ -178,9 +187,11 @@ Incorrect output (DO NOT do this):
                         "X-Title": "Housing OCR",
                     },
                 )
+                print(f"{doc_tag} 收到响应，状态码: {response.status_code}")
                 response.raise_for_status()
                 result = response.json()
                 content = result["choices"][0]["message"]["content"]
+                print(f"{doc_tag} 解析JSON...")
                 properties = self._extract_json(content)
                 properties["_extracted_by_model"] = model
                 properties = _convert_era_in_properties(properties)
@@ -217,6 +228,9 @@ Incorrect output (DO NOT do this):
                 continue
             except Exception as e:
                 print(f"{doc_tag} 模型 {model} 提取失败: {str(e)}")
+                import traceback
+
+                traceback.print_exc()
                 continue
 
         raise Exception(f"{doc_tag} 所有模型均失败，已尝试: {', '.join(self.models)}")
@@ -229,5 +243,6 @@ Incorrect output (DO NOT do this):
             if self.update_config_callback:
                 self.update_config_callback(list(self.models))
 
-    def close(self):
-        self.client.close()
+    async def close(self):
+        if self._client:
+            await self._client.aclose()

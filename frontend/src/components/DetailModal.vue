@@ -417,47 +417,48 @@ const editableStations = computed(() => {
                   </div>
                 </div>
 
-                <div class="bg-gray-50 rounded-xl p-4">
-                  <div class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">
-                    最近车站
-                  </div>
-                   <div class="space-y-2">
-                     <div
-                       v-for="(station, index) in editableStations"
-                       :key="index"
-                       class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center"
-                     >
-                       <div class="sm:col-span-4">
-                          <input
-                            v-model="station.name"
-                            type="text"
-                            placeholder="车站名"
-                            class="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 bg-white text-sm"
-                          />
-                       </div>
-                        <div class="sm:col-span-6">
+                 <div class="bg-gray-50 rounded-xl p-4">
+                   <div class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+                     最近车站
+                     <span class="text-[10px] text-gray-400 normal-case">(站名 + 线路 + 徒步分钟)</span>
+                   </div>
+                    <div class="space-y-2">
+                      <div
+                        v-for="(station, index) in editableStations"
+                        :key="index"
+                        class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center"
+                      >
+                        <div class="sm:col-span-3">
                            <input
-                             :value="linesToString(station.lines)"
-                             @input="(e) => updateStationLines(station, (e.target as HTMLInputElement).value)"
+                             v-model="station.name"
                              type="text"
-                             placeholder="线路 (多个线路用逗号、顿号或空格分隔)"
+                             placeholder="车站名"
                              class="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 bg-white text-sm"
                            />
                         </div>
-                       <div class="sm:col-span-2">
-                         <div class="relative">
+                         <div class="sm:col-span-6">
                             <input
-                              v-model.number="station.walking_minutes"
+                              :value="linesToString(station.lines)"
+                              @input="(e) => updateStationLines(station, (e.target as HTMLInputElement).value)"
                               type="text"
-                              placeholder="分钟"
-                              class="w-full px-3 py-2 pr-8 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 bg-white text-sm"
+                              placeholder="线路 (如: JR山手線、東京メトロ南北線)"
+                              class="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 bg-white text-sm"
                             />
-                           <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">分</span>
                          </div>
-                       </div>
-                     </div>
-                   </div>
-                </div>
+                        <div class="sm:col-span-3">
+                          <div class="relative">
+                             <input
+                               v-model.number="station.walking_minutes"
+                               type="text"
+                               placeholder="分钟"
+                               class="w-full px-3 py-2 pr-8 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 bg-white text-sm"
+                             />
+                            <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">分</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                 </div>
               </form>
             </div>
           </div>
