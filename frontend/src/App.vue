@@ -182,25 +182,17 @@ const onFavoriteToggle = async (doc: Document) => {
   const originalFavorite = doc.favorite;
   const isFavoriting = originalFavorite === 0;
 
-  // 乐观更新：立即切换前端状态
   doc.favorite = isFavoriting ? 1 : 0;
-  if (isFavoriting) {
-    // 喜欢时：设置 sort_order 为喜欢时间
-    doc.sort_order = Date.now();
-  }
-  // 取消喜欢时：不修改 sort_order，位置保持不变
+  doc.sort_order = Date.now();
 
   try {
     const newFavorite = await toggleFavorite(doc.id);
-    // 使用后端返回的真实状态更新
     doc.favorite = newFavorite;
-    // 强制触发Vue响应式更新
     const docIndex = documents.value.findIndex(d => d.id === doc.id);
     if (docIndex !== -1) {
       documents.value.splice(docIndex, 1, { ...doc });
     }
   } catch (error) {
-    // 请求失败：恢复原来的状态
     doc.favorite = originalFavorite;
     const docIndex = documents.value.findIndex(d => d.id === doc.id);
     if (docIndex !== -1) {

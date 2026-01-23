@@ -246,18 +246,11 @@ class Database:
         row = cursor.fetchone()
         if row:
             new_favorite = 1 if row["favorite"] == 0 else 0
-            if new_favorite == 1:
-                # Favorite: set sort_order to favorite time
-                conn.execute(
-                    "UPDATE documents SET favorite = ?, sort_order = ? WHERE id = ?",
-                    (new_favorite, int(time.time() * 1000), doc_id),
-                )
-            else:
-                # Unfavorite: keep sort_order unchanged (position stays the same)
-                conn.execute(
-                    "UPDATE documents SET favorite = ? WHERE id = ?",
-                    (new_favorite, doc_id),
-                )
+            # Set sort_order to current time for both favorite and unfavorite
+            conn.execute(
+                "UPDATE documents SET favorite = ?, sort_order = ? WHERE id = ?",
+                (new_favorite, int(time.time() * 1000), doc_id),
+            )
             conn.commit()
             conn.close()
             return new_favorite

@@ -99,20 +99,17 @@ export function useDocuments() {
     return [...filteredDocuments.value].sort((a, b) => {
       const aIsFavorite = a.favorite === 1;
       const bIsFavorite = b.favorite === 1;
-      
+
       if (aIsFavorite !== bIsFavorite) {
-        // Favorites come first
-        return bIsFavorite ? 1 : -1;
+        return aIsFavorite ? -1 : 1;
       }
-      
+
       const aOrder = a.sort_order ?? 0;
       const bOrder = b.sort_order ?? 0;
-      
+
       if (aIsFavorite) {
-        // Favorites: earlier favorites first (ASC)
         return aOrder - bOrder;
       } else {
-        // Non-favorites: newer first (DESC)
         return bOrder - aOrder;
       }
     });
