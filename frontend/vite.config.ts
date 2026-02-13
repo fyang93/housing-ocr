@@ -11,7 +11,7 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    allowedHosts: ['localhost'],
+    allowedHosts: ['localhost', 'sakura.abxy.fun'],
     port: 8080,
     proxy: {
       '/api': {
