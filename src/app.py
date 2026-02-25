@@ -291,8 +291,15 @@ async def add_model(model: dict):
     save_config(config)
 
     processor.llm_extractor.models = list(new_models)
+    retried_count = db.retry_all_failed_llm()
 
-    return JSONResponse(content={"success": True, "models": new_models})
+    return JSONResponse(
+        content={
+            "success": True,
+            "models": new_models,
+            "retried_failed_documents": retried_count,
+        }
+    )
 
 
 @app.post("/api/models/delete")
@@ -316,8 +323,15 @@ async def delete_model(request: dict):
     save_config(config)
 
     processor.llm_extractor.models = list(models)
+    retried_count = db.retry_all_failed_llm()
 
-    return JSONResponse(content={"success": True, "models": models})
+    return JSONResponse(
+        content={
+            "success": True,
+            "models": models,
+            "retried_failed_documents": retried_count,
+        }
+    )
 
 
 @app.post("/api/models/reorder")
@@ -332,8 +346,15 @@ async def reorder_models(request: dict):
     save_config(config)
 
     processor.llm_extractor.models = list(models)
+    retried_count = db.retry_all_failed_llm()
 
-    return JSONResponse(content={"success": True, "models": models})
+    return JSONResponse(
+        content={
+            "success": True,
+            "models": models,
+            "retried_failed_documents": retried_count,
+        }
+    )
 
 
 @app.post("/api/documents/cleanup")

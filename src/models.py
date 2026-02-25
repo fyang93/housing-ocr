@@ -280,6 +280,17 @@ class Database:
         conn.commit()
         conn.close()
 
+    def retry_all_failed_llm(self) -> int:
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE documents SET llm_status = 'pending' WHERE ocr_status = 'done' AND llm_status = 'failed'"
+        )
+        affected = cursor.rowcount
+        conn.commit()
+        conn.close()
+        return affected
+
     def reset_ocr_status(self, doc_id: int):
         conn = self._get_connection()
         conn.execute(

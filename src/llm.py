@@ -1,4 +1,5 @@
 import httpx
+import asyncio
 from typing import Dict, Any, Optional
 import json
 import time
@@ -19,6 +20,10 @@ ERA_PATTERNS = [
     (r"大正(\d+)年?", 1912),
     (r"明治(\d+)年?", 1867),
 ]
+
+
+class AllModelsFailedError(Exception):
+    """Raised when all configured LLM models fail."""
 
 
 def convert_japanese_era_to_western(era_text: str) -> str:
@@ -47,7 +52,12 @@ def _convert_era_in_properties(properties: Dict[str, Any]) -> Dict[str, Any]:
 
 class LLMExtractor:
     def __init__(
-        self, api_key: str, base_url: str, models: list, update_config_callback=None
+        self,
+        api_key: str,
+        base_url: str,
+        models: list,
+        update_config_callback=None,
+        request_timeout_seconds: float = 15.0,
     ):
         self.api_key = api_key
         self.base_url = base_url
@@ -55,7 +65,8 @@ class LLMExtractor:
         self.update_config_callback = update_config_callback
         self._client: httpx.AsyncClient | None = None
         self.rate_limit_cooldown = 60
-        self.model_429_times = {}
+        self.request_timeout_seconds = request_timeout_seconds
+        self.model_cooldown_times = {}
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -160,12 +171,16 @@ Incorrect output (DO NOT do this):
 ]"""
 
         client = await self._get_client()
+        attempted_models = []
         for model in self.models[:]:
+            attempted_models.append(model)
             print(f"{doc_tag} 尝试模型: {model}")
-            if model in self.model_429_times:
-                last_429 = self.model_429_times[model]
-                if time.time() - last_429 < self.rate_limit_cooldown:
-                    remaining = int(self.rate_limit_cooldown - (time.time() - last_429))
+            if model in self.model_cooldown_times:
+                cooldown_start = self.model_cooldown_times[model]
+                if time.time() - cooldown_start < self.rate_limit_cooldown:
+                    remaining = int(
+                        self.rate_limit_cooldown - (time.time() - cooldown_start)
+                    )
                     print(f"模型 {model} 冷却中，剩余 {remaining} 秒，跳过...")
                     continue
 
@@ -181,6 +196,7 @@ Incorrect output (DO NOT do this):
                 response = await client.post(
                     self.base_url,
                     json=payload,
+                    timeout=self.request_timeout_seconds,
                     headers={
                         "Authorization": f"Bearer {self.api_key}",
                         "HTTP-Referer": "http://localhost:8080",
@@ -218,22 +234,43 @@ Incorrect output (DO NOT do this):
                 status_code = e.response.status_code if hasattr(e, "response") else None
                 if status_code == 429:
                     print(f"{doc_tag} 模型 {model} 触发速率限制，记录冷却时间...")
-                    self.model_429_times[model] = time.time()
+                    self.model_cooldown_times[model] = time.time()
                     continue
                 else:
                     print(f"{doc_tag} 模型 {model} HTTP错误 {status_code}: {str(e)}")
+                    self.model_cooldown_times[model] = time.time()
+                    print(
+                        f"{doc_tag} 模型 {model} 进入冷却 {self.rate_limit_cooldown} 秒后再试"
+                    )
                     continue
+            except (httpx.TimeoutException, asyncio.TimeoutError) as e:
+                print(f"{doc_tag} 模型 {model} 请求超时: {str(e)}")
+                self.model_cooldown_times[model] = time.time()
+                print(
+                    f"{doc_tag} 模型 {model} 进入冷却 {self.rate_limit_cooldown} 秒后再试"
+                )
+                continue
             except ValueError as e:
                 print(f"{doc_tag} 模型 {model} JSON解析失败: {str(e)}")
+                self.model_cooldown_times[model] = time.time()
+                print(
+                    f"{doc_tag} 模型 {model} 进入冷却 {self.rate_limit_cooldown} 秒后再试"
+                )
                 continue
             except Exception as e:
                 print(f"{doc_tag} 模型 {model} 提取失败: {str(e)}")
                 import traceback
 
                 traceback.print_exc()
+                self.model_cooldown_times[model] = time.time()
+                print(
+                    f"{doc_tag} 模型 {model} 进入冷却 {self.rate_limit_cooldown} 秒后再试"
+                )
                 continue
 
-        raise Exception(f"{doc_tag} 所有模型均失败，已尝试: {', '.join(self.models)}")
+        raise AllModelsFailedError(
+            f"{doc_tag} 所有模型均失败，已尝试: {', '.join(attempted_models)}"
+        )
 
     def remove_failed_model(self, model_name: str):
         """移除失败的模型"""

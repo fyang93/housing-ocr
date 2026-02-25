@@ -8,10 +8,12 @@ sync:
 
 # 启动 vLLM OCR 模型服务（需要 GPU）
 ocr:
-    uv run vllm serve rednote-hilab/dots.ocr \
-        --trust-remote-code \
-        --async-scheduling \
-        --gpu-memory-utilization 0.95
+    uv run vllm serve kristaller486/dots.ocr-1.5 \
+        --tensor-parallel-size 1 \
+        --gpu-memory-utilization 0.95 \
+        --chat-template-content-format string \
+        --served-model-name rednote-hilib/dots.ocr \
+        --trust-remote-code
 
 # 启动后端 API 服务
 # 生产模式：会自动使用已构建的前端静态文件

@@ -2,7 +2,7 @@ import asyncio
 from pathlib import Path
 from src.models import Database
 from src.ocr import OCRClient
-from src.llm import LLMExtractor
+from src.llm import AllModelsFailedError, LLMExtractor
 import tomli_w
 
 
@@ -12,10 +12,13 @@ class DocumentProcessor:
         self.db = db
         self.ocr_client = OCRClient(config["ocr"]["endpoint"], config["ocr"]["model"])
         self._shutdown_event = asyncio.Event()
+        self.llm_timeout_seconds = float(
+            config.get("llm", {}).get("timeout_seconds", 15)
+        )
 
         def _update_models_callback(models):
             config["llm"]["models"] = list(models)
-            config_path = Path(__file__).parent / "config.toml"
+            config_path = Path(__file__).resolve().parent.parent / "config.toml"
             with open(config_path, "wb") as f:
                 tomli_w.dump(config, f)
 
@@ -26,6 +29,7 @@ class DocumentProcessor:
             config["llm"]["base_url"],
             config["llm"]["models"],
             update_config_callback=callback,
+            request_timeout_seconds=self.llm_timeout_seconds,
         )
 
     def _get_display_filename(self, doc: dict) -> str:
@@ -106,9 +110,16 @@ class DocumentProcessor:
                 self.db.update_llm_status(doc_id, "processing")
                 print(f"[ID:{doc_id}] llm_status已更新为processing，准备调用LLM...")
 
-                properties = await self.llm_extractor.extract_properties(
-                    ocr_text, doc_id
-                )
+                try:
+                    properties = await self.llm_extractor.extract_properties(
+                        ocr_text, doc_id
+                    )
+                except AllModelsFailedError as llm_error:
+                    print(
+                        f"[ID:{doc_id}] 所有模型提取失败，标记为failed: {str(llm_error)}"
+                    )
+                    self.db.update_llm_status(doc_id, "failed")
+                    return
                 print(f"[ID:{doc_id}] LLM调用完成，开始更新数据库...")
                 extracted_model = properties.pop("_extracted_by_model", None)
                 self.db.update_llm_status(doc_id, "done", properties, extracted_model)
@@ -129,7 +140,7 @@ class DocumentProcessor:
                 if current_doc["ocr_status"] == "processing":
                     self.db.update_ocr_status(doc_id, "pending")
                 elif current_doc["llm_status"] == "processing":
-                    self.db.update_llm_status(doc_id, "pending")
+                    self.db.update_llm_status(doc_id, "failed")
 
     async def process_queue(self):
         print("后台处理器已启动...")
@@ -157,7 +168,7 @@ class DocumentProcessor:
                         if current_doc["ocr_status"] == "processing":
                             self.db.update_ocr_status(doc_id, "pending")
                         elif current_doc["llm_status"] == "processing":
-                            self.db.update_llm_status(doc_id, "pending")
+                            self.db.update_llm_status(doc_id, "failed")
 
         while not self._shutdown_event.is_set():
             try:
